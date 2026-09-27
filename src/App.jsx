@@ -6,6 +6,8 @@ import { useData } from './context/DataContext'
 import { useSessions } from './context/SessionContext'
 import { useSocial } from './context/SocialContext'
 import { loadPrimaryMoves, savePrimaryMoves } from './data/primaryMovesStore'
+import { loadNotes, loadStatuses, saveNotes, saveStatuses } from './data/algorithmProgressStore'
+import { MAX_HISTORY, loadHistory, saveHistory } from './data/localDuelStore'
 import SocialOverlays from './components/social/SocialOverlays'
 import AuthScreen from './components/auth/AuthScreen'
 import ProfileMenu from './components/account/ProfileMenu'
@@ -31,7 +33,11 @@ import { splitOrientation } from './lib/notation'
  *  - statuses       — status nauki algorytmu (Library + Mapa),
  *  - primaryMoves   — nadpisania "Ustaw jako główny" (bez mutacji bazy),
  *  - notes          — notatki użytkownika per algorytm,
+ *  - duels          — historia pojedynków Local Duel,
  *  - selectedId     — który algorytm pokazać w CENTRALNYM modalu.
+ *
+ * statuses, primaryMoves, notes i duels są trwałe: wczytujemy je z localStorage
+ * przy montowaniu i zapisujemy przy każdej zmianie (moduły w src/data/*Store.js).
  *
  * Modal renderujemy raz, na poziomie App — dlatego otwiera się identycznie
  * z Biblioteki i z Mapy (Constellation).
@@ -51,18 +57,19 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard')
   // Tryb w scalonej sekcji Duel: null = ekran wyboru, 'local' | 'online' = tryb.
   const [duelMode, setDuelMode] = useState(null)
-  const [duels, setDuels] = useState([]) // historia pojedynków Areny (w pamięci)
-  const [statuses, setStatuses] = useState({ 'oll-45': 'mastered', 'oll-27': 'learning' })
-  // Nadpisania „Ustaw jako główny" — wczytane z localStorage, więc wybór
-  // przeżywa odświeżenie strony (lazy-init: czytamy raz przy montowaniu).
-  const [primaryMoves, setPrimaryMoves] = useState(loadPrimaryMoves)
-  const [notes, setNotes] = useState({})
+  // Stan trwały — wczytany z localStorage, więc przeżywa odświeżenie strony
+  // (lazy-init: przekazujemy funkcję, żeby czytać storage raz, przy montowaniu).
+  const [duels, setDuels] = useState(loadHistory) // historia pojedynków Local Duel
+  const [statuses, setStatuses] = useState(loadStatuses)
+  const [primaryMoves, setPrimaryMoves] = useState(loadPrimaryMoves) // „Ustaw jako główny"
+  const [notes, setNotes] = useState(loadNotes)
   const [selectedId, setSelectedId] = useState(null)
 
-  // Trwałość: przy każdej zmianie mapy zapisujemy ją do localStorage.
-  useEffect(() => {
-    savePrimaryMoves(primaryMoves)
-  }, [primaryMoves])
+  // Trwałość: przy każdej zmianie zapisujemy całą mapę/listę do localStorage.
+  useEffect(() => void saveHistory(duels), [duels])
+  useEffect(() => void saveStatuses(statuses), [statuses])
+  useEffect(() => void savePrimaryMoves(primaryMoves), [primaryMoves])
+  useEffect(() => void saveNotes(notes), [notes])
 
   // Wipe All Solves: DataContext zbił klucz w localStorage i podbił wipeSignal —
   // zerujemy też stan w pamięci, żeby algorytmy natychmiast wróciły do domyślnych.
@@ -98,7 +105,7 @@ export default function App() {
     },
     [addSolveRaw, tagSolve],
   )
-  const addDuel = useCallback((d) => setDuels((prev) => [d, ...prev]), [])
+  const addDuel = useCallback((d) => setDuels((prev) => [d, ...prev].slice(0, MAX_HISTORY)), [])
   const setStatus = useCallback((id, s) => setStatuses((p) => ({ ...p, [id]: s })), [])
   // "Ustaw jako główny": odcinamy wiodącą rotację orientacyjną (np. "y"),
   // żeby do nauki trafiła czysta sekwencja ruchów, a nie "y R U R' U'".

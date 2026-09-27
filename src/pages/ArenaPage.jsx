@@ -42,7 +42,7 @@ export default function ArenaPage({ duels = [], onDuel }) {
   }, [reset])
 
   // Zapis wyniku: bilans W/L trafia do trwałej listy graczy, a lekki wpis do
-  // „ostatnich pojedynków" (w pamięci sesji) do paska pod areną.
+  // trwałej historii „ostatnich pojedynków" (App → localStorage) pod areną.
   const handleSave = useCallback(
     (d) => {
       recordResult(d.winnerId, d.loserId)
