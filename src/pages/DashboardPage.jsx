@@ -5,7 +5,7 @@ import StatsCard from '../components/stats/StatsCard'
 import SolvesPanel from '../components/timer/SolvesPanel'
 import MilestonesRow from '../components/dashboard/MilestonesRow'
 import AnalyticsSection from '../components/stats/AnalyticsSection'
-import { useSessions } from '../context/SessionContext'
+import { sessionKeyOf, useSessions } from '../context/SessionContext'
 
 /**
  * DashboardPage — przestronna zakładka „Dashboard / Timer".
@@ -15,15 +15,16 @@ import { useSessions } from '../context/SessionContext'
  * są spójne i nie znikają przy przełączaniu zakładek.
  *
  * Statystyki, Timer (mini-historia) oraz tabela filtrują się po AKTYWNEJ sesji
- * i uwzględniają kary (+2/DNF) — patrz SessionContext i lib/stats.
+ * i uwzględniają kary (+2/DNF) — status i sesja to pola solve'a (DataContext),
+ * liczenie kar w lib/stats.
  */
 export default function DashboardPage({ solves, onSolve }) {
-  const { sessions, activeId, sessionIdOf, statusOf } = useSessions()
+  const { sessions, activeId } = useSessions()
 
-  // Czasy aktywnej sesji + status — do Timera, statystyk i tabeli.
+  // Czasy aktywnej sesji — do Timera, statystyk i tabeli.
   const sessionSolves = useMemo(
-    () => solves.filter((s) => sessionIdOf(s.id) === activeId).map((s) => ({ ...s, status: statusOf(s.id) })),
-    [solves, activeId, sessionIdOf, statusOf],
+    () => solves.filter((s) => sessionKeyOf(s) === activeId),
+    [solves, activeId],
   )
   const sessionName = sessions.find((s) => s.id === activeId)?.name ?? 'Główna'
 

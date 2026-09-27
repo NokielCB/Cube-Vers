@@ -1,41 +1,12 @@
 /**
  * Metryki speedcubingowe liczone ze wspólnej listy solve'ów.
  *
- * Konwencja: `solves` to tablica { ms, ts } od NAJNOWSZEGO do najstarszego.
+ * Konwencja: `solves` to tablica { ms, ts, status } od NAJNOWSZEGO do
+ * najstarszego (`ms` = surowy czas, karę dolicza effTime niżej).
  * Wszystkie funkcje są czyste ORAZ odporne na pusty/niezainicjalizowany
  * stan — nigdy nie rzucają na `undefined`/`null`/[] (obrona przed "białym
  * ekranem" przy montowaniu komponentu z jeszcze niegotowymi danymi).
  */
-
-// Wyciąga poprawne czasy (ms) z listy solve'ów, odsiewając śmieci.
-function times(solves) {
-  if (!Array.isArray(solves)) return []
-  return solves.map((s) => s?.ms).filter((ms) => typeof ms === 'number' && !Number.isNaN(ms))
-}
-
-/**
- * Średnia WCA: odrzuca najlepszy i najgorszy wynik, uśrednia resztę.
- * Zwraca null, jeśli pomiarów jest mniej niż 3.
- */
-export function wcaAverage(msList) {
-  if (!Array.isArray(msList) || msList.length < 3) return null
-  const sorted = [...msList].sort((a, b) => a - b)
-  const trimmed = sorted.slice(1, -1) // bez best i worst
-  return trimmed.reduce((sum, x) => sum + x, 0) / trimmed.length
-}
-
-/** Ao{n} z n najnowszych solve'ów. null, gdy jest ich mniej niż n. */
-export function averageOf(solves, n) {
-  const list = times(solves)
-  if (list.length < n) return null
-  return wcaAverage(list.slice(0, n))
-}
-
-/** Personal best — najniższy czas w historii. null, gdy brak danych. */
-export function personalBest(solves) {
-  const list = times(solves)
-  return list.length ? Math.min(...list) : null
-}
 
 /**
  * Ostatnie n czasów w kolejności CHRONOLOGICZNEJ (stary → nowy) —
@@ -53,7 +24,7 @@ export function recentTrend(solves, n = 16) {
 /* ═══════════════════ STATYSTYKI z uwzględnieniem KAR ═══════════════════
  * Każdy solve może mieć status:
  *   'OK'  → liczy się jego czas,
- *   '+2'  → czas + 2000 ms (kara),
+ *   'PLUS2' → czas + 2000 ms (kara +2),
  *   'DNF' → nieukończony: do średnich traktowany jak „najgorszy",
  *           a jeśli DNF-ów jest za dużo, cała średnia = DNF.
  * Wartość zwracana ze średnich: liczba (ms) | 'DNF' | null (za mało danych).
@@ -63,7 +34,7 @@ export function recentTrend(solves, n = 16) {
 export function effTime(s) {
   if (!s || typeof s.ms !== 'number' || Number.isNaN(s.ms)) return Infinity
   if (s.status === 'DNF') return Infinity
-  if (s.status === '+2') return s.ms + 2000
+  if (s.status === 'PLUS2') return s.ms + 2000
   return s.ms
 }
 

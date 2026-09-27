@@ -5,12 +5,19 @@
  */
 import {
   createSolve,
-  getSolvesWithStats,
+  listSolves,
+  updateSolve,
   deleteSolve,
   clearSolves,
   importSolves,
 } from '../services/solve.service.js'
-import { createSolveSchema } from '../validators/solve.schema.js'
+import {
+  createSolveSchema,
+  updateSolveSchema,
+  listSolvesQuerySchema,
+  importBodySchema,
+  importSolveSchema,
+} from '../validators/solve.schema.js'
 
 // POST /api/solves
 export async function postSolve(req, res, next) {
@@ -27,13 +34,31 @@ export async function postSolve(req, res, next) {
   }
 }
 
-// GET /api/solves?take=100
+// GET /api/solves?take=1000&cursor=<id> — jedna strona historii.
+// Odpowiedź: { solves: [...], nextCursor: string|null } (null = to już koniec).
 export async function getSolves(req, res, next) {
   try {
-    const take = Math.min(Number(req.query.take) || 100, 500)
-    const result = await getSolvesWithStats(req.userId, { take })
-    res.json(result) // { solves: [...], stats: { pb, ao5, ao12, trend, count } }
+    const query = listSolvesQuerySchema.parse(req.query)
+    res.json(await listSolves(req.userId, query))
   } catch (err) {
+    if (err?.name === 'ZodError') {
+      return res.status(400).json({ error: 'Niepoprawne parametry stronicowania.' })
+    }
+    next(err)
+  }
+}
+
+// PATCH /api/solves/:id — kara (+2/DNF/OK) lub przeniesienie do innej sesji.
+export async function patchSolve(req, res, next) {
+  try {
+    const data = updateSolveSchema.parse(req.body)
+    const solve = await updateSolve(req.userId, req.params.id, data)
+    if (!solve) return res.status(404).json({ error: 'Nie znaleziono ułożenia.' })
+    res.json(solve)
+  } catch (err) {
+    if (err?.name === 'ZodError') {
+      return res.status(400).json({ error: err.issues[0]?.message ?? 'Niepoprawne dane.' })
+    }
     next(err)
   }
 }
@@ -61,15 +86,26 @@ export async function clearAllSolves(req, res, next) {
   }
 }
 
-// POST /api/solves/import — migracja historii Gościa na konto.
+// POST /api/solves/import — migracja historii (i sesji) Gościa na konto.
 export async function importGuestSolves(req, res, next) {
   try {
-    const list = Array.isArray(req.body?.solves) ? req.body.solves : []
-    if (list.length === 0) return res.json({ imported: 0 })
-    if (list.length > 5000) return res.status(413).json({ error: 'Za dużo rekordów naraz.' })
-    const { count } = await importSolves(req.userId, list)
-    res.status(201).json({ imported: count })
+    const { solves, sessions } = importBodySchema.parse(req.body)
+    // Rekordy z localStorage mogą być zepsute — złe odrzucamy pojedynczo,
+    // zamiast przez jeden śmieć odrzucać całą historię.
+    const valid = solves
+      .map((s) => importSolveSchema.safeParse(s))
+      .filter((r) => r.success)
+      .map((r) => r.data)
+    if (valid.length === 0 && sessions.length === 0) return res.json({ imported: 0, sessions: 0 })
+    const result = await importSolves(req.userId, valid, sessions)
+    res.status(201).json(result)
   } catch (err) {
+    if (err?.name === 'ZodError') {
+      const tooMany = err.issues.some((i) => i.code === 'too_big')
+      return res
+        .status(tooMany ? 413 : 400)
+        .json({ error: err.issues[0]?.message ?? 'Niepoprawne dane importu.' })
+    }
     next(err)
   }
 }

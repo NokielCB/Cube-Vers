@@ -18,7 +18,9 @@ async function request(path, { method = 'GET', body } = {}) {
 
   const data = await res.json().catch(() => ({}))
   if (!res.ok) {
-    throw new Error(data.error ?? 'Coś poszło nie tak.')
+    const err = new Error(data.error ?? 'Coś poszło nie tak.')
+    err.status = res.status // np. 404 — wywołujący może zareagować inaczej niż na awarię sieci
+    throw err
   }
   return data
 }
@@ -31,11 +33,22 @@ export const api = {
 
   updateUser: (payload) => request('/api/user/update', { method: 'PUT', body: payload }),
 
-  getSolves: () => request('/api/solves'),
+  // Jedna strona historii (max 1000); `cursor` = id ostatniego solve'a poprzedniej strony.
+  getSolves: (cursor) =>
+    request(`/api/solves${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''}`),
   createSolve: (payload) => request('/api/solves', { method: 'POST', body: payload }),
+  // patch: { status } i/lub { sessionId } — kara albo przeniesienie do sesji
+  updateSolve: (id, patch) => request(`/api/solves/${id}`, { method: 'PATCH', body: patch }),
   deleteSolve: (id) => request(`/api/solves/${id}`, { method: 'DELETE' }),
   clearSolves: () => request('/api/solves/clear', { method: 'DELETE' }),
-  importSolves: (solves) => request('/api/solves/import', { method: 'POST', body: { solves } }),
+  importSolves: (solves, sessions = []) =>
+    request('/api/solves/import', { method: 'POST', body: { solves, sessions } }),
+
+  // — Sesje układania —
+  listSessions: () => request('/api/sessions'),
+  createSession: (name) => request('/api/sessions', { method: 'POST', body: { name } }),
+  renameSession: (id, name) => request(`/api/sessions/${id}`, { method: 'PATCH', body: { name } }),
+  deleteSession: (id) => request(`/api/sessions/${id}`, { method: 'DELETE' }),
 
   getAnalytics: () => request('/api/analytics/summary'),
 

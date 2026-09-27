@@ -1,18 +1,19 @@
 import { Fragment, useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ListOrdered, Plus, Pencil, Trash2, Check, X, ChevronDown, Shuffle } from 'lucide-react'
-import { useSessions } from '../../context/SessionContext'
+import { sessionKeyOf, useSessions } from '../../context/SessionContext'
 import { useData } from '../../context/DataContext'
 import { formatResult } from '../../lib/formatTime'
+import { plural } from '../../lib/plural'
 
 /**
  * SolvesPanel — kafel „Times": pasek sesji (przełączanie / dodawanie / zmiana
  * nazwy / usuwanie) + tabela ostatnich czasów aktywnej sesji z akcjami na
  * pojedynczym wyniku (+2, DNF, usuń).
  *
- * Komponent jest samowystarczalny: sesje i statusy bierze z SessionContext,
- * a usuwanie czasu z DataContext (to samo źródło, co reszta apki). `solves`
- * (prop) to PEŁNA, kanoniczna historia — filtrujemy ją tu po aktywnej sesji.
+ * Komponent jest samowystarczalny: sesje bierze z SessionContext, a kary i
+ * usuwanie czasu z DataContext (to samo źródło, co reszta apki). `solves`
+ * (prop) to PEŁNA historia — filtrujemy ją tu po aktywnej sesji.
  */
 
 function clockOf(ts) {
@@ -57,45 +58,52 @@ function RowAction({ active, activeClass, onClick, children, label }) {
 }
 
 export default function SolvesPanel({ solves = [] }) {
-  const { sessions, activeId, setActiveId, addSession, renameSession, removeSession, sessionIdOf, statusOf, setStatus, forget } =
-    useSessions()
-  const { deleteSolve } = useData()
+  const { sessions, activeId, setActiveId, addSession, renameSession, removeSession } = useSessions()
+  const { deleteSolve, setSolveStatus } = useData()
 
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
   const [expandedId, setExpandedId] = useState(null) // rozwinięty wiersz (podgląd scramble)
+  const [error, setError] = useState(null) // komunikat, gdy zapis (np. w chmurze) się nie uda
   const toggleExpand = (id) => setExpandedId((cur) => (cur === id ? null : id))
 
   const activeName = sessions.find((s) => s.id === activeId)?.name ?? 'Główna'
 
-  // Czasy aktywnej sesji (najnowsze pierwsze) + doklejony status.
-  const rows = useMemo(
-    () => solves.filter((s) => sessionIdOf(s.id) === activeId).map((s) => ({ ...s, status: statusOf(s.id) })),
-    [solves, activeId, sessionIdOf, statusOf],
-  )
+  // Czasy aktywnej sesji (najnowsze pierwsze).
+  const rows = useMemo(() => solves.filter((s) => sessionKeyOf(s) === activeId), [solves, activeId])
   const total = rows.length
 
-  const handleAdd = () => addSession(`Sesja ${sessions.length}`)
+  // Każda akcja to zapis (localStorage albo API) — może się nie udać (sieć,
+  // limit sesji). Zamiast cicho połknąć błąd, pokazujemy go pod paskiem sesji.
+  const run = async (action) => {
+    setError(null)
+    try {
+      await action()
+    } catch (err) {
+      setError(err?.message ?? 'Nie udało się zapisać zmiany.')
+    }
+  }
+
+  const handleAdd = () => run(() => addSession(`Sesja ${sessions.length}`))
 
   const startEdit = () => {
     setDraft(activeName)
     setEditing(true)
   }
   const saveEdit = () => {
-    renameSession(activeId, draft)
     setEditing(false)
+    run(() => renameSession(activeId, draft))
   }
   const handleDelete = () => {
     const s = sessions.find((x) => x.id === activeId)
     if (!s || s.id === 'default') return
-    if (window.confirm(`Usunąć sesję „${s.name}"? Jej czasy wrócą do „Głównej".`)) removeSession(s.id)
+    if (window.confirm(`Usunąć sesję „${s.name}"? Jej czasy wrócą do „Głównej".`)) {
+      run(() => removeSession(s.id))
+    }
   }
 
-  const toggle = (id, current, target) => setStatus(id, current === target ? 'OK' : target)
-  const remove = async (id) => {
-    await deleteSolve(id)
-    forget(id)
-  }
+  const toggle = (id, current, target) => run(() => setSolveStatus(id, current === target ? 'OK' : target))
+  const remove = (id) => run(() => deleteSolve(id))
 
   return (
     <motion.section
@@ -110,7 +118,7 @@ export default function SolvesPanel({ solves = [] }) {
           <ListOrdered size={16} strokeWidth={1.5} />
           <span className="text-[11px] font-medium uppercase tracking-[0.14em]">Times</span>
         </div>
-        <span className="text-[11px] font-medium tabular-nums">{total} czasów</span>
+        <span className="text-[11px] font-medium tabular-nums">{plural(total, 'czas', 'czasy', 'czasów')}</span>
       </div>
 
       {/* ── pasek sesji ── */}
@@ -196,6 +204,12 @@ export default function SolvesPanel({ solves = [] }) {
         </div>
       )}
 
+      {error && (
+        <p role="alert" className="mt-3 text-xs text-red-500">
+          {error}
+        </p>
+      )}
+
       {/* ── tabela czasów ── */}
       {total === 0 ? (
         <div className="mt-6 flex h-24 items-center justify-center rounded-2xl bg-ink-900/[0.02] text-xs text-ink-400">
@@ -233,7 +247,7 @@ export default function SolvesPanel({ solves = [] }) {
                             className={
                               r.status === 'DNF'
                                 ? 'font-medium text-red-500'
-                                : r.status === '+2'
+                                : r.status === 'PLUS2'
                                   ? 'font-medium text-amber-600'
                                   : 'text-ink-950'
                             }
@@ -249,9 +263,9 @@ export default function SolvesPanel({ solves = [] }) {
                         <div className="flex items-center justify-end gap-1">
                           <RowAction
                             label="dodaj lub cofnij karę +2"
-                            active={r.status === '+2'}
+                            active={r.status === 'PLUS2'}
                             activeClass="bg-amber-500/15 text-amber-600"
-                            onClick={() => toggle(r.id, r.status, '+2')}
+                            onClick={() => toggle(r.id, r.status, 'PLUS2')}
                           >
                             +2
                           </RowAction>

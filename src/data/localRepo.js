@@ -1,26 +1,39 @@
 /**
- * localRepo — implementacja repozytorium solve'ów oparta o localStorage.
+ * localRepo — implementacja repozytorium solve'ów i sesji oparta o localStorage.
  * Używana w TRYBIE GOŚCIA. Ma dokładnie ten sam interfejs co apiRepo:
- *   getSolves, addSolve, deleteSolve, getAnalytics, exportAll, clear
+ *   getSolves, addSolve, updateSolve, deleteSolve, clearAll, getAnalytics,
+ *   getSessions, createSession, renameSession, deleteSession
+ * (+ exportAll / exportSessions / clear do migracji Gościa → konto).
  * Dzięki temu reszta apki nie wie, że dane siedzą w przeglądarce.
  *
- * Kanoniczny kształt solve'a: { id, time, scramble, status, createdAt }.
+ * Kanoniczny kształt solve'a: { id, time, scramble, status, createdAt, sessionId }.
+ * Kanoniczny kształt sesji:   { id, name, createdAt }. sessionId null = „Główna".
  */
 import { computeAnalytics } from './analyticsLocal'
 
 const KEY = 'cubeverse_guest_solves'
+const SESSIONS_KEY = 'cubeverse_guest_sessions'
+const MAX_SESSIONS = 50 // ten sam limit co na serwerze
 
-function read() {
+function readList(key) {
   try {
-    const raw = localStorage.getItem(KEY)
-    return raw ? JSON.parse(raw) : []
+    const raw = localStorage.getItem(key)
+    const list = raw ? JSON.parse(raw) : []
+    return Array.isArray(list) ? list : []
   } catch {
     return []
   }
 }
 
+const read = () => readList(KEY)
+const readSessions = () => readList(SESSIONS_KEY)
+
 function write(list) {
   localStorage.setItem(KEY, JSON.stringify(list))
+}
+
+function writeSessions(list) {
+  localStorage.setItem(SESSIONS_KEY, JSON.stringify(list))
 }
 
 function uid() {
@@ -34,10 +47,34 @@ export const localRepo = {
     return read() // trzymamy od najnowszego
   },
 
-  async addSolve({ time, scramble = 'unrecorded', status = 'OK' }) {
-    const solve = { id: uid(), time: Math.round(time), scramble, status, createdAt: new Date().toISOString() }
+  async addSolve({ time, scramble = 'unrecorded', status = 'OK', sessionId = null }) {
+    const solve = {
+      id: uid(),
+      time: Math.round(time),
+      scramble,
+      status,
+      createdAt: new Date().toISOString(),
+      sessionId,
+    }
     write([solve, ...read()])
     return solve
+  },
+
+  // Tak jak PATCH na serwerze: zmieniamy wyłącznie karę i/lub sesję.
+  async updateSolve(id, { status, sessionId }) {
+    let updated = null
+    const list = read().map((s) => {
+      if (s.id !== id) return s
+      updated = {
+        ...s,
+        ...(status !== undefined && { status }),
+        ...(sessionId !== undefined && { sessionId }),
+      }
+      return updated
+    })
+    if (!updated) throw new Error('Nie znaleziono ułożenia.')
+    write(list)
+    return updated
   },
 
   async deleteSolve(id) {
@@ -56,11 +93,42 @@ export const localRepo = {
     return computeAnalytics(read())
   },
 
+  // — sesje układania —
+  async getSessions() {
+    return readSessions()
+  },
+
+  async createSession(name) {
+    const list = readSessions()
+    if (list.length >= MAX_SESSIONS) throw new Error(`Osiągnięto limit ${MAX_SESSIONS} sesji.`)
+    const session = { id: uid(), name, createdAt: new Date().toISOString() }
+    writeSessions([...list, session])
+    return session
+  },
+
+  async renameSession(id, name) {
+    let updated = null
+    writeSessions(readSessions().map((s) => (s.id === id ? (updated = { ...s, name }) : s)))
+    if (!updated) throw new Error('Nie znaleziono sesji.')
+    return updated
+  },
+
+  // Jak SetNull w bazie: czasy usuwanej sesji wracają do „Głównej".
+  async deleteSession(id) {
+    writeSessions(readSessions().filter((s) => s.id !== id))
+    write(read().map((s) => (s.sessionId === id ? { ...s, sessionId: null } : s)))
+    return { ok: true }
+  },
+
   // — pomocnicze do migracji Gościa → chmura —
   exportAll() {
     return read()
   },
+  exportSessions() {
+    return readSessions()
+  },
   clear() {
     localStorage.removeItem(KEY)
+    localStorage.removeItem(SESSIONS_KEY)
   },
 }

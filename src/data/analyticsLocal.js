@@ -20,10 +20,12 @@ const TIME_SLOTS = [
   { key: 'wieczor', label: 'Wieczór (18–24)', from: 18, to: 24 },
 ]
 const mean = (a) => (a.length ? a.reduce((s, x) => s + x, 0) / a.length : null)
+// `time` to surowy czas — kara +2 doliczana tu, tak jak w analytics.service na serwerze.
+const effectiveTime = (s) => (s.status === 'PLUS2' ? s.time + 2000 : s.time)
 
 export function computeAnalytics(solves = []) {
   const valid = solves.filter((s) => s.status !== 'DNF')
-  const validTimes = valid.map((s) => s.time)
+  const validTimes = valid.map(effectiveTime)
 
   const distribution = BUCKETS.map((b) => ({
     key: b.key,
@@ -39,7 +41,7 @@ export function computeAnalytics(solves = []) {
   const dnfCount = statusBreakdown.DNF ?? 0
 
   // trend: 20 najnowszych vs 20 poprzednich (solve'y od najnowszego)
-  const recent = valid.map((s) => s.time)
+  const recent = validTimes
   const currentAvg = mean(recent.slice(0, 20))
   const previousAvg = mean(recent.slice(20, 40))
   let changePct = null

@@ -355,7 +355,7 @@ export default function TimerCard({ solves = [], onSolve }) {
               exit={{ opacity: 0, scale: 0.8 }}
               transition={{ type: 'spring', stiffness: 300, damping: 24 }}
               className={`rounded-full border border-ink-900/[0.06] bg-ink-900/[0.03] px-3 py-1 font-mono text-xs tabular-nums ${
-                r.status === 'DNF' ? 'text-red-500' : r.status === '+2' ? 'text-amber-600' : 'text-ink-500'
+                r.status === 'DNF' ? 'text-red-500' : r.status === 'PLUS2' ? 'text-amber-600' : 'text-ink-500'
               }`}
             >
               {formatResult(r.ms, r.status)}

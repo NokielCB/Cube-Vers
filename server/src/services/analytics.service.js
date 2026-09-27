@@ -27,19 +27,31 @@ const TIME_SLOTS = [
 
 const mean = (arr) => (arr.length ? arr.reduce((s, x) => s + x, 0) / arr.length : null)
 
+// Kara +2: w bazie `time` to SUROWY czas, więc czas efektywny PLUS2 = time + 2 s.
+const PENALTY_MS = 2000
+const effectiveTime = (s) => (s.status === 'PLUS2' ? s.time + PENALTY_MS : s.time)
+
+/** Warunek „czas w przedziale" z przesunięciem o `shift` ms (dla kary +2). */
+function timeRange(b, shift = 0) {
+  return { gte: b.min - shift, ...(b.max != null ? { lt: b.max - shift } : {}) }
+}
+
 export async function getAnalyticsSummary(userId) {
   // ── 1) DYSTRYBUCJA CZASÓW ─────────────────────────────────────────────
   // Każdy przedział to osobny COUNT liczony PRZEZ BAZĘ (z indeksu), nie pętla
   // w JS. Odpalamy je równolegle (Promise.all) — baza policzy je naraz.
-  // DNF-y pomijamy (nie mają sensownego czasu do kubełkowania).
+  // DNF-y pomijamy (nie mają sensownego czasu do kubełkowania). Solve z karą
+  // +2 trafia do przedziału wg czasu efektywnego — stąd przesunięty zakres.
   const distribution = await Promise.all(
     BUCKETS.map((b) =>
       prisma.solve
         .count({
           where: {
             userId,
-            status: { not: 'DNF' },
-            time: { gte: b.min, ...(b.max != null ? { lt: b.max } : {}) },
+            OR: [
+              { status: 'OK', time: timeRange(b) },
+              { status: 'PLUS2', time: timeRange(b, PENALTY_MS) },
+            ],
           },
         })
         .then((count) => ({ key: b.key, label: b.label, count })),
@@ -47,13 +59,27 @@ export async function getAnalyticsSummary(userId) {
   )
 
   // ── 2) AGREGATY OGÓLNE ────────────────────────────────────────────────
-  // Jedno zapytanie zwraca licznik, średnią i minimum — wszystko po stronie DB.
-  const agg = await prisma.solve.aggregate({
-    where: { userId, status: { not: 'DNF' } },
-    _count: { _all: true },
-    _avg: { time: true },
-    _min: { time: true },
-  })
+  // Dwa agregaty po stronie DB (czyste i z karą), sklejane w JS: suma zamiast
+  // średniej, bo do każdego PLUS2 trzeba dodać 2 s, zanim się uśredni.
+  const [okAgg, plusAgg] = await Promise.all(
+    ['OK', 'PLUS2'].map((status) =>
+      prisma.solve.aggregate({
+        where: { userId, status },
+        _count: { _all: true },
+        _sum: { time: true },
+        _min: { time: true },
+      }),
+    ),
+  )
+  const validCount = okAgg._count._all + plusAgg._count._all
+  const timeSum =
+    (okAgg._sum.time ?? 0) + (plusAgg._sum.time ?? 0) + PENALTY_MS * plusAgg._count._all
+  const bests = [okAgg._min.time, plusAgg._min.time != null ? plusAgg._min.time + PENALTY_MS : null]
+  const agg = {
+    count: validCount,
+    avg: validCount ? timeSum / validCount : null,
+    min: bests.some((x) => x != null) ? Math.min(...bests.filter((x) => x != null)) : null,
+  }
 
   // ── 3) ROZKŁAD STATUSÓW (groupBy) ─────────────────────────────────────
   // groupBy liczy OK/PLUS2/DNF jednym zapytaniem grupującym w bazie.
@@ -75,9 +101,9 @@ export async function getAnalyticsSummary(userId) {
     where: { userId, status: { not: 'DNF' } },
     orderBy: { createdAt: 'desc' },
     take: 40,
-    select: { time: true },
+    select: { time: true, status: true },
   })
-  const times = recent.map((r) => r.time)
+  const times = recent.map(effectiveTime)
   const currentAvg = mean(times.slice(0, 20))
   const previousAvg = mean(times.slice(20, 40))
 
@@ -118,9 +144,9 @@ export async function getAnalyticsSummary(userId) {
   return {
     overview: {
       totalSolves,
-      validSolves: agg._count._all,
-      bestTime: agg._min.time,
-      averageTime: agg._avg.time,
+      validSolves: agg.count,
+      bestTime: agg.min,
+      averageTime: agg.avg,
       dnfCount,
       dnfRate: totalSolves ? dnfCount / totalSolves : 0,
     },

@@ -7,7 +7,8 @@
  * się `solves` (nowy wynik), a nie przy każdym renderze. Dla dziesiątek
  * czy setek solve'ów to mikrosekundy.
  */
-import { averageOf, personalBest } from './stats'
+// Wersje z uwzględnieniem kar: +2 dolicza 2 s, a DNF nigdy nie jest „rekordem".
+import { currentAverage, pbSingle } from './stats'
 
 const clamp01 = (x) => Math.max(0, Math.min(1, x))
 // Zawsze pracujemy na tablicy — nigdy nie czytamy .length z undefined.
@@ -25,7 +26,7 @@ export const ACHIEVEMENTS = [
     description: 'Zejdź poniżej 20 sekund choć raz.',
     evaluate(rawSolves) {
       const solves = safe(rawSolves)
-      const best = personalBest(solves) // O(n), jeden przebieg
+      const best = pbSingle(solves) // O(n), jeden przebieg
       if (best == null) return { progress: 0, done: false, detail: 'Brak ułożeń' }
       const done = best < 20000
       // im niższy best, tym bliżej 20s → wyższy progress
@@ -47,7 +48,9 @@ export const ACHIEVEMENTS = [
           detail: `${solves.length}/5 solve'ów`,
         }
       }
-      const ao5 = averageOf(solves, 5)
+      const ao5 = currentAverage(solves, 5)
+      // Ao5 z ≥2 DNF-ami to „DNF" — cel nieosiągnięty, bez postępu.
+      if (ao5 === 'DNF') return { progress: 0, done: false, detail: 'Ao5 DNF' }
       const done = ao5 < 25000
       const progress = done ? 1 : clamp01(25000 / ao5)
       return { progress, done, detail: `Ao5 ${(ao5 / 1000).toFixed(2)}s` }

@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { api } from '../lib/api'
 import { localRepo } from '../data/localRepo'
+import { migrateLegacyMeta } from '../data/legacySessionMeta'
 
 /**
  * AuthContext — globalny stan sesji z TRZEMA trybami (poza ładowaniem):
@@ -36,17 +37,25 @@ export function AuthProvider({ children }) {
 
   /**
    * Migracja danych Gościa → chmura. Wywoływana po rejestracji: jeśli w
-   * localStorage są lokalne ułożenia, wysyłamy je na konto i czyścimy lokalną
-   * kopię. Best-effort — błąd migracji nie blokuje wejścia do apki.
+   * localStorage są lokalne ułożenia lub sesje, wysyłamy je na konto (serwer
+   * podmienia lokalne id sesji na nowe) i czyścimy lokalną kopię.
+   * Best-effort — błąd migracji nie blokuje wejścia do apki, a dane Gościa
+   * zostają wtedy w przeglądarce (nic nie ginie).
    */
   const migrateGuestData = useCallback(async () => {
+    // Stare kary/sesje Gościa (sprzed przeniesienia ich do danych) muszą trafić
+    // do lokalnych czasów PRZED eksportem — po imporcie czasy dostają nowe id
+    // i stare wpisy nie miałyby już do czego się przypiąć.
+    await migrateLegacyMeta(localRepo, localRepo.exportAll()).catch(() => false)
     const local = localRepo.exportAll()
-    if (!local.length) return { imported: 0 }
+    const sessions = localRepo.exportSessions()
+    if (!local.length && !sessions.length) return { imported: 0 }
     try {
-      const res = await api.importSolves(local)
+      const res = await api.importSolves(local, sessions)
       localRepo.clear()
       return res
-    } catch {
+    } catch (err) {
+      console.error('[Auth] Import danych Gościa nie powiódł się:', err)
       return { imported: 0, error: true }
     }
   }, [])

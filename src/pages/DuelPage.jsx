@@ -2,6 +2,7 @@ import { motion } from 'framer-motion'
 import { ArrowLeft, Globe, Swords, Users, ChevronRight } from 'lucide-react'
 import ArenaPage from './ArenaPage'
 import OnlineArenaPage from './OnlineArenaPage'
+import { plural } from '../lib/plural'
 
 /**
  * DuelPage — WSPÓLNA sekcja pojedynków. Łączy dawne dwie osobne zakładki
@@ -31,18 +32,6 @@ const MODES = [
     Icon: Globe,
   },
 ]
-
-/**
- * Polska odmiana liczebnika: 1 pojedynek, 2–4 pojedynki (ale 12–14 pojedynków),
- * 5+ pojedynków. Liczy się końcówka liczby, stąd `% 10` i `% 100`.
- */
-function duelsLabel(n) {
-  if (n === 1) return '1 pojedynek'
-  const last = n % 10
-  const lastTwo = n % 100
-  const few = last >= 2 && last <= 4 && !(lastTwo >= 12 && lastTwo <= 14)
-  return `${n} ${few ? 'pojedynki' : 'pojedynków'}`
-}
 
 /** Ekran wyboru trybu — dwa duże kafle bento. */
 function ModeSelect({ onSelect, duels }) {
@@ -92,7 +81,7 @@ function ModeSelect({ onSelect, duels }) {
             <p className="mt-3 text-sm leading-relaxed text-ink-500">{desc}</p>
             {id === 'local' && duels.length > 0 && (
               <span className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-ink-900/[0.04] px-3 py-1 text-xs text-ink-500">
-                <Users size={12} strokeWidth={1.8} /> {duelsLabel(duels.length)} w historii
+                <Users size={12} strokeWidth={1.8} /> {plural(duels.length, 'pojedynek', 'pojedynki', 'pojedynków')} w historii
               </span>
             )}
           </motion.button>

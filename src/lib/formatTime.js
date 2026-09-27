@@ -17,11 +17,11 @@ export function formatTime(ms) {
 /**
  * Wynik z uwzględnieniem kary/statusu — do tabeli czasów i mini-historii.
  *  - 'DNF' → napis „DNF" (czas nie liczy się do średnich),
- *  - '+2'  → czas + 2 s z doklejonym „+" (kara za lekko rozłożoną kostkę),
+ *  - 'PLUS2' → czas + 2 s z doklejonym „+" (kara za lekko rozłożoną kostkę),
  *  - 'OK'  → zwykły czas.
  */
 export function formatResult(ms, status = 'OK') {
   if (status === 'DNF') return 'DNF'
-  if (status === '+2') return `${formatTime(ms + 2000)}+`
+  if (status === 'PLUS2') return `${formatTime(ms + 2000)}+`
   return formatTime(ms)
 }

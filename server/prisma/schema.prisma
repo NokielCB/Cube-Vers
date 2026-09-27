@@ -16,9 +16,11 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Status ułożenia (WCA). SQLite nie wspiera enumów, więc trzymamy String:
+// Status ułożenia (WCA). Trzymamy String (bez enumów Postgresa):
 //   "OK"    = czysty czas
-//   "PLUS2" = kara +2 sekundy (czas zapisany już z doliczoną karą)
+//   "PLUS2" = kara +2 sekundy. `time` to SUROWY czas ze stopera — karę
+//             doliczamy przy liczeniu statystyk (czas efektywny = time + 2000).
+//             Dzięki temu przełączanie +2 w tę i z powrotem nie zmienia `time`.
 //   "DNF"   = Did Not Finish — ułożenie nieudane
 
 model User {
@@ -32,8 +34,9 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  solves Solve[]
-  duels  DuelPlayer[] // pojedynki, w których brał udział
+  solves        Solve[]
+  solveSessions SolveSession[] // nazwane sesje układania (np. „Trening OH")
+  duels         DuelPlayer[] // pojedynki, w których brał udział
 
   // Relacja znajomości jest kierunkowa (kto wysłał / kto dostał zaproszenie),
   // więc User występuje po OBU stronach — stąd dwie nazwane relacje.
@@ -77,14 +80,36 @@ model Solve {
   // zwykły solve z Timera ma tu null.
   duelId String?
 
-  user User  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  duel Duel? @relation(fields: [duelId], references: [id], onDelete: SetNull)
+  // Sesja, do której należy czas. null = domyślna sesja „Główna" (nie ma
+  // własnego rekordu — to worek na czasy spoza nazwanych sesji).
+  sessionId String?
+
+  user    User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  duel    Duel?         @relation(fields: [duelId], references: [id], onDelete: SetNull)
+  // Usunięcie sesji NIE kasuje czasów — SetNull przenosi je do „Głównej".
+  session SolveSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
 
   // Indeks złożony: prawie każde zapytanie to "solve'y danego usera
   // posortowane od najnowszego". Ten indeks czyni je natychmiastowym.
   @@index([userId, createdAt])
   @@index([duelId])
+  @@index([sessionId])
   @@map("solves")
+}
+
+/// Nazwana sesja układania (zakładka w tabeli czasów). Sesja „Główna" nie ma
+/// rekordu — czasy bez sesji mają po prostu sessionId = null.
+model SolveSession {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  createdAt DateTime @default(now())
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  solves Solve[]
+
+  @@index([userId])
+  @@map("solve_sessions")
 }
 
 /// Pojedynek sieciowy (Real-Time Duel) — jeden wspólny scramble, dwóch graczy.

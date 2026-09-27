@@ -7,6 +7,7 @@ import { protectRoute } from '../middleware/auth.js'
 import {
   postSolve,
   getSolves,
+  patchSolve,
   removeSolve,
   clearAllSolves,
   importGuestSolves,
@@ -16,10 +17,11 @@ const router = Router()
 
 router.use(protectRoute) // brama: wszystko poniżej wymaga zalogowania
 
-router.get('/', getSolves) //         GET    /api/solves
+router.get('/', getSolves) //         GET    /api/solves?take=&cursor=
 router.post('/', postSolve) //        POST   /api/solves
-router.post('/import', importGuestSolves) // POST /api/solves/import (migracja gościa)
+router.post('/import', importGuestSolves) // POST /api/solves/import (migracja gościa, większy limit body — app.js)
 router.delete('/clear', clearAllSolves) // DELETE /api/solves/clear (wyczyść całą historię)
+router.patch('/:id', patchSolve) //   PATCH  /api/solves/:id (kara / sesja)
 router.delete('/:id', removeSolve) //  DELETE /api/solves/:id
 
 // UWAGA: `/clear` MUSI być zadeklarowane PRZED `/:id`, inaczej Express

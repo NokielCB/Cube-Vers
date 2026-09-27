@@ -48,8 +48,8 @@ export default function App() {
   // App w ogóle nie wie, czy źródłem jest API czy localStorage.
   // `wipeSignal` rośnie za każdym „Wipe All Solves" — patrz efekt niżej.
   const { legacySolves, addSolve: addSolveRaw, wipeSignal } = useData()
-  // Sesje: nowy czas przypinamy do aktywnej sesji zaraz po jego zapisaniu.
-  const { tagSolve } = useSessions()
+  // Sesje: nowy czas od razu zapisujemy z sessionId aktywnej sesji.
+  const { activeSessionId } = useSessions()
   // Sygnał nawigacji z systemu wyzwań: gdy pojawi się pendingDuel (obaj gracze
   // zaakceptowali), przenosimy widok do Areny — samo dołączenie do pokoju robi
   // OnlineArenaPage, konsumując pendingDuel.
@@ -95,15 +95,11 @@ export default function App() {
     setActiveTab(id)
   }, [])
 
-  // Adapter pod istniejący TimerCard, który woła onSolve(ms). Po zapisie
-  // przypinamy świeży solve do aktywnej sesji (id znamy dopiero po utworzeniu).
+  // Adapter pod istniejący TimerCard, który woła onSolve(ms, scramble).
+  // Sesja jest polem solve'a, więc trafia do zapisu razem z czasem.
   const addSolve = useCallback(
-    async (ms, scramble = 'unrecorded') => {
-      const created = await addSolveRaw(ms, scramble)
-      if (created?.id) tagSolve(created.id)
-      return created
-    },
-    [addSolveRaw, tagSolve],
+    (ms, scramble = 'unrecorded') => addSolveRaw(ms, scramble, { sessionId: activeSessionId }),
+    [addSolveRaw, activeSessionId],
   )
   const addDuel = useCallback((d) => setDuels((prev) => [d, ...prev].slice(0, MAX_HISTORY)), [])
   const setStatus = useCallback((id, s) => setStatuses((p) => ({ ...p, [id]: s })), [])
