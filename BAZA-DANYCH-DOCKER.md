@@ -9,15 +9,12 @@ w kontenerze Docker. To ta sama baza, której użyjesz później na produkcji.
 - **`server/.env`** — nowy `DATABASE_URL` wskazujący na bazę w Dockerze
   (stary zapisany jako `server/.env.sqlite.bak`).
 - **`server/.env.example`** — zaktualizowany wzór.
+- **`server/prisma/migrations/`** — stare migracje SQLite usunięte (zostały w historii
+  gita, w pierwszym commicie). Na ich miejscu jest migracja bazowa **`0_init`** pod
+  PostgreSQL, wygenerowana z `schema.prisma`. **Nie kasuj tego folderu** — to historia
+  schematu bazy, commitowana razem z kodem.
 
-## Co musisz zrobić Ty (raz)
-Usuń stare migracje SQLite — są niekompatybilne z PostgreSQL, a ja nie mogłem ich
-skasować z tego środowiska. W eksploratorze plików skasuj **cały folder**:
-```
-server/prisma/migrations
-```
-(jeśli pojawił się też `server/prisma/migrations_sqlite_backup` — jego również).
-Plik `server/prisma/dev.db` możesz zostawić lub usunąć, nie jest już używany.
+Plik `server/prisma/dev.db` (stara baza SQLite) nie jest już używany — możesz go usunąć.
 
 ---
 
@@ -44,11 +41,12 @@ Status `db` powinien być `healthy`.
 ### 2. Zbuduj klienta Prisma i utwórz tabele
 W folderze **`server/`**:
 ```bash
-npx prisma generate      # generuje klienta na nowo (provider = postgresql)
-npx prisma db push       # tworzy tabele w Postgresie wg schema.prisma
+npx prisma generate          # generuje klienta na nowo (provider = postgresql)
+npx prisma migrate deploy    # tworzy tabele, wykonując migracje z prisma/migrations
 ```
-`db push` to najprostsza droga w dev — synchronizuje schemat z bazą **bez plików
-migracji**. (Alternatywa produkcyjna niżej.)
+`migrate deploy` wykonuje tylko te migracje, których baza jeszcze nie ma (historię
+trzyma w tabeli `_prisma_migrations`). Na aktualnej bazie nic nie robi, więc można
+go bezpiecznie powtarzać.
 
 ### 3. (Opcjonalnie) Wypełnij dane testowe
 ```bash
@@ -112,19 +110,23 @@ Baza:       cubeverse
 URL:  postgresql://cubeverse:cubeverse@localhost:5432/cubeverse?schema=public
 ```
 > To dane do nauki/dev. Na produkcji ustaw mocne, losowe hasło i inny `JWT_SECRET`
-> (nie commituj `.env` do repo — dodaj go do `.gitignore`).
+> (`.env` jest w `.gitignore`, więc nie trafi do repo).
 
 ---
 
-## Migracje „na poważnie" (opcjonalnie, zamiast `db push`)
-`db push` jest świetny w dev, ale nie zapisuje historii zmian schematu. Gdy zechcesz
-wersjonować zmiany (i wdrażać je na produkcję), użyj migracji:
+## Zmiany schematu bazy (migracje)
+Schemat bazy jest wersjonowany **migracjami** — każda zmiana to folder w
+`server/prisma/migrations/` z plikiem SQL, commitowany razem z kodem. Po zmianie
+`schema.prisma`, w `server/`:
 ```bash
-# w server/ — najpierw skasuj stary folder migrations (patrz wyżej)
-npx prisma migrate dev --name init
+npx prisma migrate dev --name krotki_opis_zmiany
 ```
-Prisma utworzy świeży folder `migrations/` już pod PostgreSQL. Na serwerze
-produkcyjnym stosuje się potem `npx prisma migrate deploy`.
+Prisma porówna schemat z bazą, zapisze nową migrację, wykona ją i wygeneruje klienta.
+Na serwerze produkcyjnym stosuje się potem `npx prisma migrate deploy`.
+
+> **Nie używaj już `db push`.** Zmienia bazę bez wpisu w historii migracji, więc przy
+> następnym `migrate dev` Prisma wykryje rozjazd („drift") i zaproponuje
+> **reset bazy, czyli utratę wszystkich danych**.
 
 ---
 
@@ -133,10 +135,13 @@ produkcyjnym stosuje się potem `npx prisma migrate deploy`.
   uruchomiony albo kontener nie wstał. Sprawdź `docker compose ps`.
 - **`port 5432 already in use`** — masz już lokalnego Postgresa. W `docker-compose.yml`
   zmień mapowanie na `"5433:5432"` i w `DATABASE_URL` port na `5433`.
-- **`P3018 / provider mismatch` przy migrate** — nie usunąłeś starego folderu
-  `migrations` (z lockiem `sqlite`). Skasuj go i spróbuj ponownie.
+- **`Drift detected` i pytanie o reset przy `migrate dev`** — baza zmieniła się poza
+  migracjami (np. przez `db push`). Jeśli zależy Ci na danych, **odpowiedz „nie"**.
+  Tak było z tą bazą na starcie: tabele powstały przez `db push`, więc zamiast je
+  odtwarzać, migrację bazową oznaczono jako wykonaną:
+  `npx prisma migrate resolve --applied 0_init` (tylko gdy baza = `schema.prisma`).
 - **Zmiany w `schema.prisma` nie widać** — po każdej zmianie schematu:
-  `npx prisma generate` + `npx prisma db push` (lub `migrate dev`).
+  `npx prisma migrate dev --name opis_zmiany` (zmienia bazę i generuje klienta).
 
 ---
 
