@@ -36,6 +36,7 @@ model User {
 
   solves        Solve[]
   solveSessions SolveSession[] // nazwane sesje układania (np. „Trening OH")
+  authSessions  AuthSession[] // aktywne logowania (po jednym na urządzenie)
   duels         DuelPlayer[] // pojedynki, w których brał udział
 
   // Relacja znajomości jest kierunkowa (kto wysłał / kto dostał zaproszenie),
@@ -44,6 +45,22 @@ model User {
   receivedFriendRequests Friendship[] @relation("ReceivedFriendships")
 
   @@map("users")
+}
+
+/// Aktywne logowanie (sesja uwierzytelnienia) — jeden rekord na urządzenie.
+/// JWT niesie jego id w polu `sid`; token jest ważny TYLKO, dopóki rekord
+/// istnieje. Dzięki temu wylogowanie (usunięcie rekordu) naprawdę unieważnia
+/// token, a zmiana hasła może wylogować wszystkie inne urządzenia.
+model AuthSession {
+  id        String   @id @default(cuid())
+  userId    String
+  createdAt DateTime @default(now())
+  expiresAt DateTime // = wygaśnięcie JWT; stare rekordy sprzątamy przy logowaniu
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("auth_sessions")
 }
 
 /// Relacja znajomości między dwoma użytkownikami.

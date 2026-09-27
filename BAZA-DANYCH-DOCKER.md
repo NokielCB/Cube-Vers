@@ -131,6 +131,11 @@ Na serwerze produkcyjnym stosuje się potem `npx prisma migrate deploy`.
 ---
 
 ## Najczęstsze problemy
+- **`❌ Niepoprawna konfiguracja serwera` przy starcie backendu** — w `server/.env`
+  brakuje `JWT_SECRET` albo jest to przykładowa wartość z `.env.example` (serwer
+  celowo nie startuje — z publicznym sekretem każdy mógłby podrobić logowanie).
+  Wygeneruj własny: `node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"`
+  i wklej jako `JWT_SECRET="..."`. Zmiana sekretu wylogowuje wszystkich.
 - **`Can't reach database server at localhost:5432`** — Docker Desktop nie jest
   uruchomiony albo kontener nie wstał. Sprawdź `docker compose ps`.
 - **`port 5432 already in use`** — masz już lokalnego Postgresa. W `docker-compose.yml`

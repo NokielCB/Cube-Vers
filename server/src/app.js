@@ -17,6 +17,14 @@ import { protectRoute } from './middleware/auth.js'
 
 export const app = express()
 
+// Za reverse proxy (Render, nginx…) req.ip to adres PROXY, chyba że Express
+// ufa nagłówkowi X-Forwarded-For. Limiter logowania działa po IP, więc bez tego
+// jedna osoba zgadująca hasło zablokowałaby logowanie wszystkim. TRUST_PROXY =
+// liczba proxy przed serwerem (lokalnie brak → Express nie ufa nagłówkowi,
+// którego klient mógłby podrobić).
+const trustProxy = Number(process.env.TRUST_PROXY)
+if (trustProxy > 0) app.set('trust proxy', trustProxy)
+
 app.use(helmet()) // bezpieczne nagłówki HTTP
 
 // CORS z ciasteczkami: przy httpOnly cookie MUSI być credentials:true, a

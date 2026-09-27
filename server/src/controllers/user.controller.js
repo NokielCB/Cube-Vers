@@ -2,9 +2,10 @@
  * Kontroler profilu — PUT /api/user/update.
  * Spina walidację, limiter brute force i serwis aktualizacji.
  */
-import { updateUser } from '../services/auth.service.js'
+import { updateUser, revokeOtherSessions } from '../services/auth.service.js'
 import { updateUserSchema } from '../validators/user.schema.js'
 import { secondsLocked, registerFailure, resetAttempts } from '../lib/attemptLimiter.js'
+import { disconnectSessions } from '../socket/presence.js'
 
 export async function update(req, res, next) {
   // 1) Zablokowany po zbyt wielu pomyłkach starego hasła?
@@ -19,6 +20,13 @@ export async function update(req, res, next) {
     const data = updateUserSchema.parse(req.body)
     const user = await updateUser(req.userId, data)
     resetAttempts(req.userId) // sukces → czyścimy licznik
+
+    // Nowe hasło → wylogowujemy WSZYSTKIE inne urządzenia (jeśli ktoś przejął
+    // sesję, właśnie ją traci). Bieżące urządzenie zostaje zalogowane.
+    if (data.newPassword) {
+      const revoked = await revokeOtherSessions(req.userId, req.sessionId)
+      void disconnectSessions(req.userId, revoked).catch(() => {})
+    }
     res.json({ user })
   } catch (err) {
     // Złe stare hasło = próba brute force → doliczamy do limitera.

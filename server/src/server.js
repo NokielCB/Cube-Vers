@@ -10,6 +10,9 @@ import 'dotenv/config'
 import http from 'node:http'
 import { app } from './app.js'
 import { initSocket } from './socket/index.js'
+import { assertEnv } from './lib/env.js'
+
+assertEnv() // zła konfiguracja (np. przykładowy JWT_SECRET) = serwer nie startuje
 
 const PORT = process.env.PORT ?? 4000
 

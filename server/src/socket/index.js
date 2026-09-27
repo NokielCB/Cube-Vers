@@ -12,12 +12,11 @@
  *     odpalałyby się n-krotnie. Guard `if (io) return io` temu zapobiega.
  */
 import { Server } from 'socket.io'
-import jwt from 'jsonwebtoken'
 import { parse as parseCookie } from 'cookie'
 import { registerDuelHandlers } from './duelHandlers.js'
 import { registerFriendHandlers } from './friendHandlers.js'
 import { COOKIE_NAME } from '../lib/cookie.js'
-import { getUserById } from '../services/auth.service.js'
+import { getUserById, verifySessionToken } from '../services/auth.service.js'
 
 let io = null
 
@@ -32,7 +31,9 @@ export function initSocket(httpServer) {
     },
   })
 
-  // Autoryzacja handshake: czytamy JWT z tego samego httpOnly cookie co REST.
+  // Autoryzacja handshake: czytamy JWT z tego samego httpOnly cookie co REST
+  // i sprawdzamy go TAK SAMO jak REST (podpis + żywa sesja w bazie) — inaczej
+  // token unieważniony wylogowaniem dalej działałby przez WebSocket.
   // Gość bez ważnego tokenu wciąż MOŻE grać (userId=null) — po prostu jego
   // mecze nie zapiszą się do bazy. Zaostrz to (next(new Error())), jeśli
   // chcesz wpuszczać wyłącznie zalogowanych.
@@ -40,11 +41,12 @@ export function initSocket(httpServer) {
     try {
       const cookies = parseCookie(socket.handshake.headers.cookie ?? '')
       const token = cookies[COOKIE_NAME]
-      if (token) {
-        const payload = jwt.verify(token, process.env.JWT_SECRET)
-        const user = await getUserById(payload.sub)
+      const session = token ? await verifySessionToken(token) : null
+      if (session) {
+        const user = await getUserById(session.userId)
         if (user) {
           socket.data.userId = user.id
+          socket.data.sessionId = session.sessionId // do rozłączenia po wylogowaniu
           socket.data.username = user.username ?? null
           socket.data.name = user.displayName ?? user.username ?? user.email
         }

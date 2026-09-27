@@ -61,3 +61,17 @@ export function emitToUser(userId, event, payload) {
   if (!userId) return
   getIO().to(userRoom(userId)).emit(event, payload)
 }
+
+/**
+ * Rozłącza sockety należące do unieważnionych sesji logowania (wylogowanie,
+ * zmiana hasła). Tożsamość socketu ustala się raz, przy handshake'u — bez
+ * tego raz połączony socket działałby dalej mimo unieważnionego tokenu.
+ */
+export async function disconnectSessions(userId, sessionIds) {
+  if (!userId || !sessionIds?.length) return
+  const revoked = new Set(sessionIds)
+  const sockets = await getIO().in(userRoom(userId)).fetchSockets()
+  for (const s of sockets) {
+    if (revoked.has(s.data.sessionId)) s.disconnect(true)
+  }
+}

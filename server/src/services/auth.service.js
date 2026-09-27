@@ -9,7 +9,15 @@ import { prisma } from '../lib/prisma.js'
 // Liczba rund solenia. 10–12 to rozsądny kompromis bezpieczeństwo/szybkość.
 // Każda runda PODWAJA koszt łamania — 12 rund jest ~4× wolniejsze niż 10.
 const SALT_ROUNDS = 12
-const TOKEN_TTL = '7d' // jak długo token jest ważny
+const TOKEN_TTL_SECONDS = 7 * 24 * 60 * 60 // jak długo token jest ważny (7 dni, jak ciasteczko)
+
+// „Atrapa" hasha do logowania na NIEISTNIEJĄCY e-mail. Bez niej odpowiedź
+// przychodziła w ~4 ms (brak konta = brak bcrypta) zamiast ~260 ms, więc po
+// samym czasie dało się sprawdzić, które e-maile mają konto. Liczona leniwie
+// raz, z tą samą liczbą rund co prawdziwe hasła (ten sam koszt porównania).
+let dummyHashPromise = null
+const dummyHash = () => (dummyHashPromise ??= bcrypt.hash('cubeverse-timing-dummy', SALT_ROUNDS))
+void dummyHash() // liczymy od razu przy starcie, żeby 1. logowanie nie było wolniejsze
 
 /** Publiczny kształt usera — NIGDY nie wypuszczamy passwordHash. */
 function toPublicUser(user) {
@@ -51,9 +59,64 @@ async function findFreeUsername(base) {
   return `cuber_${Date.now().toString(36)}`
 }
 
-/** Podpisuje JWT z userId w polu `sub`. */
-export function signToken(userId) {
-  return jwt.sign({ sub: userId }, process.env.JWT_SECRET, { expiresIn: TOKEN_TTL })
+/**
+ * Loguje urządzenie: tworzy rekord AuthSession i podpisuje JWT z jego id (`sid`).
+ * Sam podpis nie wystarcza do wejścia — verifySessionToken sprawdza też, czy
+ * rekord wciąż istnieje. Przy okazji sprzątamy wygasłe sesje tego usera.
+ */
+export async function createSessionToken(userId) {
+  const now = Date.now()
+  await prisma.authSession.deleteMany({ where: { userId, expiresAt: { lt: new Date(now) } } })
+  const session = await prisma.authSession.create({
+    data: { userId, expiresAt: new Date(now + TOKEN_TTL_SECONDS * 1000) },
+  })
+  return jwt.sign({ sub: userId, sid: session.id }, process.env.JWT_SECRET, {
+    algorithm: 'HS256',
+    expiresIn: TOKEN_TTL_SECONDS,
+  })
+}
+
+/**
+ * Sprawdza token: podpis + ważność (jwt.verify) ORAZ istnienie sesji w bazie.
+ * Token po wylogowaniu albo po zmianie hasła na innym urządzeniu ma poprawny
+ * podpis, ale jego sesji już nie ma — więc zostaje odrzucony.
+ *
+ * @returns {Promise<{ userId: string, sessionId: string } | null>}
+ */
+export async function verifySessionToken(token) {
+  let payload
+  try {
+    // algorithms: przypinamy HS256 — token podpisany innym algorytmem odpada.
+    payload = jwt.verify(token, process.env.JWT_SECRET, { algorithms: ['HS256'] })
+  } catch {
+    return null
+  }
+  if (!payload?.sub || !payload?.sid) return null // np. stary token sprzed sesji w bazie
+  const session = await prisma.authSession.findFirst({
+    where: { id: payload.sid, userId: payload.sub, expiresAt: { gt: new Date() } },
+    select: { id: true },
+  })
+  return session ? { userId: payload.sub, sessionId: session.id } : null
+}
+
+/** Wylogowanie jednego urządzenia. */
+export function revokeSession(sessionId) {
+  return prisma.authSession.deleteMany({ where: { id: sessionId } })
+}
+
+/**
+ * Wylogowanie wszystkich urządzeń POZA bieżącym (po zmianie hasła).
+ * Zwraca id unieważnionych sesji — żeby rozłączyć też ich WebSockety.
+ */
+export async function revokeOtherSessions(userId, keepSessionId) {
+  const others = await prisma.authSession.findMany({
+    where: { userId, id: { not: keepSessionId } },
+    select: { id: true },
+  })
+  if (others.length) {
+    await prisma.authSession.deleteMany({ where: { id: { in: others.map((s) => s.id) } } })
+  }
+  return others.map((s) => s.id)
 }
 
 /**
@@ -104,13 +167,17 @@ export async function getOrCreateUsername(userId) {
 }
 
 /**
- * Logowanie: porównuje hasło z hashem. Ważne — ten sam komunikat błędu dla
- * „nie ma takiego e-maila" i „złe hasło", żeby nie zdradzać, które konta
- * istnieją (obrona przed enumeracją użytkowników).
+ * Logowanie: porównuje hasło z hashem. Obrona przed enumeracją kont ma DWIE
+ * części — obie są potrzebne:
+ *   1) ten sam komunikat dla „nie ma takiego e-maila" i „złe hasło",
+ *   2) ten sam CZAS odpowiedzi: brak konta też kosztuje jedno porównanie
+ *      bcrypt (z atrapą), inaczej różnicę widać w stoperze.
  */
 export async function loginUser({ email, password }) {
   const user = await prisma.user.findUnique({ where: { email } })
-  const ok = user && (await bcrypt.compare(password, user.passwordHash))
+  const hash = user?.passwordHash ?? (await dummyHash())
+  const passwordOk = await bcrypt.compare(password, hash)
+  const ok = Boolean(user) && passwordOk
   if (!ok) {
     const err = new Error('Niepoprawny e-mail lub hasło.')
     err.status = 401

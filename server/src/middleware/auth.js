@@ -7,26 +7,36 @@
  *   2. nagłówek `Authorization: Bearer <token>` — fallback np. dla klientów
  *      API/mobilnych, które nie używają ciasteczek.
  *
- * Po sukcesie ustawia `req.userId` (z pola `sub` tokenu).
+ * Token musi mieć poprawny podpis ORAZ żywą sesję w bazie (AuthSession) —
+ * dzięki temu wylogowanie naprawdę go unieważnia.
+ * Po sukcesie ustawia `req.userId` i `req.sessionId`.
  */
-import jwt from 'jsonwebtoken'
 import { COOKIE_NAME } from '../lib/cookie.js'
+import { verifySessionToken } from '../services/auth.service.js'
 
-export function protectRoute(req, res, next) {
+/** Token z ciasteczka albo nagłówka Authorization (null, gdy brak). */
+export function tokenFrom(req) {
   const fromCookie = req.cookies?.[COOKIE_NAME]
   const [scheme, headerToken] = (req.headers.authorization ?? '').split(' ')
-  const token = fromCookie ?? (scheme === 'Bearer' ? headerToken : null)
+  return fromCookie ?? (scheme === 'Bearer' ? headerToken : null)
+}
 
+export async function protectRoute(req, res, next) {
+  const token = tokenFrom(req)
   if (!token) {
     return res.status(401).json({ error: 'Wymagane logowanie.' })
   }
 
   try {
-    const payload = jwt.verify(token, process.env.JWT_SECRET)
-    req.userId = payload.sub
+    const session = await verifySessionToken(token)
+    if (!session) {
+      return res.status(401).json({ error: 'Sesja wygasła — zaloguj się ponownie.' })
+    }
+    req.userId = session.userId
+    req.sessionId = session.sessionId
     next()
-  } catch {
-    return res.status(401).json({ error: 'Sesja wygasła — zaloguj się ponownie.' })
+  } catch (err) {
+    next(err) // np. baza niedostępna → 500, a nie „zaloguj się ponownie"
   }
 }
 
