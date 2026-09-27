@@ -1,0 +1,37 @@
+# ---------------------------------------------------------------------------
+# CubeVerse — pliki, których NIE wersjonujemy
+# ---------------------------------------------------------------------------
+
+# Zależności — odtwarzane przez `npm install` (w katalogu głównym i w server/)
+node_modules/
+
+# Build frontendu (Vite) i paczka demo pod InfinityFree — zawsze do odtworzenia
+dist/
+deploy-infinityfree/
+cubeverse-demo-htdocs.zip
+
+# Tymczasowe pliki Vite — zostają, gdy dev-serwer zostanie przerwany w trakcie startu
+vite.config.js.timestamp-*
+
+# Sekrety: prawdziwe .env (i ich kopie, np. .env.sqlite.bak) NIGDY nie trafiają
+# do repo. Wersjonujemy tylko wzór bez sekretów: .env.example
+.env
+.env.*
+!.env.example
+*.local
+
+# Stara lokalna baza SQLite (backend działa już na PostgreSQL w Dockerze)
+server/prisma/*.db
+server/prisma/*.db-journal
+
+# Logi
+*.log
+npm-debug.log*
+
+# Edytory, system i prywatne ustawienia Claude Code
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
+.claude/settings.local.json

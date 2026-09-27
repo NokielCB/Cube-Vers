@@ -1,0 +1,118 @@
+// ---------------------------------------------------------------------------
+// Prisma schema — CubeVerse backend
+// ---------------------------------------------------------------------------
+// TRYB PRODUKCYJNY: PostgreSQL (uruchamiany lokalnie w Dockerze).
+// Baza startuje przez `docker compose up -d` (patrz docker-compose.yml w katalogu
+// głównym projektu). Pola `status` celowo zostają typu String — kod aplikacji
+// operuje na wartościach "OK"/"PLUS2"/"DNF" i nie wymaga enumów Postgresa.
+// ---------------------------------------------------------------------------
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Status ułożenia (WCA). SQLite nie wspiera enumów, więc trzymamy String:
+//   "OK"    = czysty czas
+//   "PLUS2" = kara +2 sekundy (czas zapisany już z doliczoną karą)
+//   "DNF"   = Did Not Finish — ułożenie nieudane
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  // Unikalny, publiczny nick do systemu znajomych. Nullable, bo istniejące
+  // konta powstały przed tym polem — backfill robimy leniwie (getOrCreateUsername).
+  username     String?  @unique
+  displayName  String?
+  passwordHash String // NIGDY nie zwracamy tego pola do klienta
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  solves Solve[]
+  duels  DuelPlayer[] // pojedynki, w których brał udział
+
+  // Relacja znajomości jest kierunkowa (kto wysłał / kto dostał zaproszenie),
+  // więc User występuje po OBU stronach — stąd dwie nazwane relacje.
+  sentFriendRequests     Friendship[] @relation("SentFriendships")
+  receivedFriendRequests Friendship[] @relation("ReceivedFriendships")
+
+  @@map("users")
+}
+
+/// Relacja znajomości między dwoma użytkownikami.
+/// status: "PENDING" (wysłane, czeka na akceptację) | "ACCEPTED" (znajomi).
+/// Odrzucenie NIE zostawia rekordu — po prostu go kasujemy.
+model Friendship {
+  id         String   @id @default(cuid())
+  senderId   String
+  receiverId String
+  status     String   @default("PENDING") // "PENDING" | "ACCEPTED"
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  sender   User @relation("SentFriendships", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver User @relation("ReceivedFriendships", fields: [receiverId], references: [id], onDelete: Cascade)
+
+  // Jedna para (nadawca, odbiorca) może mieć tylko jeden rekord — twardo
+  // blokuje duplikaty zaproszeń na poziomie bazy (nie tylko w kodzie).
+  @@unique([senderId, receiverId])
+  @@index([receiverId])
+  @@index([senderId])
+  @@map("friendships")
+}
+
+model Solve {
+  id        String      @id @default(cuid())
+  userId    String
+  time      Int // czas w MILISEKUNDACH (liczba całkowita — bez błędów zmiennoprzecinkowych)
+  scramble  String
+  status    String   @default("OK") // "OK" | "PLUS2" | "DNF"
+  createdAt DateTime @default(now()) // to jest nasza "data ułożenia"
+
+  // Opcjonalna relacja do pojedynku — solve powstały w Arenie ma duelId,
+  // zwykły solve z Timera ma tu null.
+  duelId String?
+
+  user User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  duel Duel? @relation(fields: [duelId], references: [id], onDelete: SetNull)
+
+  // Indeks złożony: prawie każde zapytanie to "solve'y danego usera
+  // posortowane od najnowszego". Ten indeks czyni je natychmiastowym.
+  @@index([userId, createdAt])
+  @@index([duelId])
+  @@map("solves")
+}
+
+/// Pojedynek sieciowy (Real-Time Duel) — jeden wspólny scramble, dwóch graczy.
+model Duel {
+  id        String   @id @default(cuid())
+  roomCode  String // kod pokoju, w którym rozegrano mecz
+  scramble  String // oficjalny scramble wygenerowany przez SERWER
+  winnerId  String? // id zwycięzcy (null np. gdy obaj DNF)
+  createdAt DateTime @default(now())
+
+  players DuelPlayer[]
+  solves  Solve[] // dwa ułożenia przypięte do tego pojedynku
+
+  @@map("duels")
+}
+
+/// Tabela łącząca (many-to-many User <-> Duel) z wynikiem konkretnego gracza.
+/// Trzyma wynik "na wszelki wypadek" nawet gdyby Solve został usunięty.
+model DuelPlayer {
+  id       String      @id @default(cuid())
+  duelId   String
+  userId   String
+  time     Int // czas tego gracza w ms
+  status   String @default("OK") // "OK" | "PLUS2" | "DNF"
+
+  duel Duel @relation(fields: [duelId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([duelId, userId]) // gracz może być w pojedynku tylko raz
+  @@map("duel_players")
+}

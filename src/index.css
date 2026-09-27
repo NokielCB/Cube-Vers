@@ -1,0 +1,81 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+html {
+  /* iOS Safari: bez automatycznego "pogrubiania" tekstu po obrocie ekranu */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  @apply bg-alabaster-100 text-ink-900 font-sans antialiased overflow-x-hidden;
+  font-feature-settings: 'cv11', 'ss01';
+  /* mobile: bez niebieskiego flasha przy tapnięciu + bez "gumowania" całej strony */
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+}
+
+/* ---------- iOS: zero zoomu przy fokusie inputa ----------
+   Safari przybliża stronę, gdy pole ma font-size < 16px. Na ekranach
+   dotykowych wymuszamy 16px — layout tego nie czuje, a zoom znika. */
+@media (max-width: 767px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* ---------- karuzele mobilne: przewijanie bez widocznego scrollbara ---------- */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* ---------- Luksusowe szkło (bento tile) ----------
+   Półprzezroczysta biel + delikatny biały border (25%) + mocny blur.
+   Cień "soft" zamiast obrysu — element unosi się, nie odcina. */
+.tile {
+  @apply rounded-bento border border-white/25 bg-white/40 shadow-soft backdrop-blur-2xl;
+}
+
+/* Wariant akcentowy — głęboka, aksamitna czerń */
+.tile-dark {
+  @apply rounded-bento border border-white/10 bg-ink-950 text-alabaster-50 shadow-soft-lg;
+}
+
+/* ---------- Organiczne tło ----------
+   Sugestia miękkiej formy 3D: nakładające się, ledwie widoczne
+   gradienty w ciepłych szarościach. Zero neonów. */
+.bg-organic {
+  background:
+    radial-gradient(55% 45% at 22% 18%, rgba(214, 205, 185, 0.55), transparent 70%),
+    radial-gradient(45% 40% at 82% 12%, rgba(226, 222, 214, 0.6), transparent 72%),
+    radial-gradient(60% 55% at 68% 85%, rgba(206, 200, 188, 0.4), transparent 75%),
+    linear-gradient(180deg, #f6f5f1 0%, #f2f1ec 100%);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #dedcd3;
+  border-radius: 8px;
+}
+::selection {
+  background: rgba(23, 23, 23, 0.9);
+  color: #faf9f6;
+}

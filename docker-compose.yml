@@ -1,0 +1,42 @@
+# ---------------------------------------------------------------------------
+# CubeVerse — lokalna baza danych w Dockerze
+# ---------------------------------------------------------------------------
+# Uruchomienie:   docker compose up -d
+# Zatrzymanie:    docker compose down          (dane zostają)
+# Reset (kasuje dane): docker compose down -v
+#
+# Usługi:
+#   db      → PostgreSQL 16 (właściwa baza aplikacji), port 5432
+#   adminer → lekki panel WWW do podglądu bazy, http://localhost:8080
+# ---------------------------------------------------------------------------
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: cubeverse-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: cubeverse
+      POSTGRES_PASSWORD: cubeverse
+      POSTGRES_DB: cubeverse
+    ports:
+      - "5432:5432"
+    volumes:
+      - cubeverse_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cubeverse -d cubeverse"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  adminer:
+    image: adminer:latest
+    container_name: cubeverse-adminer
+    restart: unless-stopped
+    depends_on:
+      - db
+    ports:
+      - "8080:8080"
+
+volumes:
+  cubeverse_pgdata:
