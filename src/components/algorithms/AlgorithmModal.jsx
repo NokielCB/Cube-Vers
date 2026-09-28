@@ -9,6 +9,7 @@ import {
   getDetails,
   isAlternativeActive,
 } from '../../data/algorithmDetails'
+import { MAX_NOTE_LENGTH } from '../../data/algorithmProgressStore'
 import { formatTime } from '../../lib/formatTime'
 
 /**
@@ -250,6 +251,7 @@ export default function AlgorithmModal({
               <textarea
                 value={notes}
                 onChange={(e) => onNotesChange(alg.id, e.target.value)}
+                maxLength={MAX_NOTE_LENGTH}
                 placeholder="Zapisz własne skojarzenia, palcówkę, triki rozpoznawania…"
                 className="mt-3 min-h-[96px] flex-1 resize-none rounded-2xl border border-ink-900/[0.06] bg-white/40 p-4 text-sm leading-relaxed text-ink-800 placeholder:text-ink-400 focus:border-ink-900/20 focus:outline-none"
               />

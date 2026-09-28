@@ -52,12 +52,17 @@ export const api = {
 
   getAnalytics: () => request('/api/analytics/summary'),
 
-  // — Postęp nauki algorytmów: statusy (Biblioteka) + rekordy z treningu —
+  // — Postęp nauki algorytmów: statusy, rekordy z treningu, notatki, wariant główny —
   getProgress: () => request('/api/progress'),
   setAlgStatus: (algId, status) =>
     request(`/api/progress/statuses/${encodeURIComponent(algId)}`, { method: 'PUT', body: { status } }),
   // Serwer zapisze czas tylko, jeśli bije rekord; oddaje rekord obowiązujący po zapisie.
   recordAlgPb: (payload) => request('/api/progress/pbs', { method: 'POST', body: payload }),
+  // Cały tekst notatki ('' = usuń) i sekwencja wariantu z „Ustaw jako główny".
+  setAlgNote: (algId, note) =>
+    request(`/api/progress/notes/${encodeURIComponent(algId)}`, { method: 'PUT', body: { note } }),
+  setAlgPrimary: (algId, moves) =>
+    request(`/api/progress/primary/${encodeURIComponent(algId)}`, { method: 'PUT', body: { moves } }),
   importProgress: (payload) => request('/api/progress/import', { method: 'POST', body: payload }),
 
   // — System znajomych —

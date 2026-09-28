@@ -3,7 +3,7 @@
  * Używana w TRYBIE GOŚCIA. Ma dokładnie ten sam interfejs co apiRepo:
  *   getSolves, addSolve, updateSolve, deleteSolve, clearAll, getAnalytics,
  *   getSessions, createSession, renameSession, deleteSession,
- *   getProgress, setAlgStatus, recordAlgPb
+ *   getProgress, setAlgStatus, recordAlgPb, setAlgNote, setAlgPrimary
  * (+ exportAll / exportSessions / clear do migracji Gościa → konto).
  * Dzięki temu reszta apki nie wie, że dane siedzą w przeglądarce.
  *
@@ -11,7 +11,17 @@
  * Kanoniczny kształt sesji:   { id, name, createdAt }. sessionId null = „Główna".
  */
 import { computeAnalytics } from './analyticsLocal'
-import { loadPbs, loadStatuses, savePbs, saveStatuses } from './algorithmProgressStore'
+import {
+  loadLocalProgress,
+  loadNotes,
+  loadPbs,
+  loadPrimaryMoves,
+  loadStatuses,
+  saveNotes,
+  savePbs,
+  savePrimaryMoves,
+  saveStatuses,
+} from './algorithmProgressStore'
 
 const KEY = 'cubeverse_guest_solves'
 const SESSIONS_KEY = 'cubeverse_guest_sessions'
@@ -122,10 +132,10 @@ export const localRepo = {
     return { ok: true }
   },
 
-  // — postęp nauki algorytmów (statusy + rekordy z treningu) —
+  // — postęp nauki algorytmów (statusy, rekordy, notatki, wariant główny) —
   // Ten sam kształt i ta sama zasada „tylko lepszy czas" co na serwerze.
   async getProgress() {
-    return { statuses: loadStatuses(), pbs: loadPbs() }
+    return loadLocalProgress()
   },
 
   async setAlgStatus(algId, status) {
@@ -139,6 +149,18 @@ export const localRepo = {
     if (cur != null && cur <= time) return { algId, moves, time: cur }
     savePbs({ ...all, [algId]: { ...all[algId], [moves]: time } })
     return { algId, moves, time }
+  },
+
+  // Pusta notatka = brak wpisu (jak null w bazie).
+  async setAlgNote(algId, note) {
+    const { [algId]: _old, ...rest } = loadNotes()
+    saveNotes(note.trim() ? { ...rest, [algId]: note } : rest)
+    return { algId, note }
+  },
+
+  async setAlgPrimary(algId, moves) {
+    savePrimaryMoves({ ...loadPrimaryMoves(), [algId]: moves })
+    return { algId, moves }
   },
 
   // — pomocnicze do migracji Gościa → chmura —

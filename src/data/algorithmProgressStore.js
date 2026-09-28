@@ -1,22 +1,25 @@
 /**
- * algorithmProgressStore — trwałość postępów nauki algorytmów w localStorage:
- *   - statusy nauki: { [algId]: 'new' | 'learning' | 'mastered' },
- *   - notatki:       { [algId]: "własny tekst użytkownika" },
- *   - rekordy (PB):  { [algId]: { [sekwencja wariantu]: ms } } — z trybu treningu.
+ * algorithmProgressStore — postęp nauki algorytmów w localStorage:
+ *   - statusy nauki:   { [algId]: 'new' | 'learning' | 'mastered' },
+ *   - rekordy (PB):    { [algId]: { [sekwencja wariantu]: ms } } — z trybu treningu,
+ *   - notatki:         { [algId]: "własny tekst użytkownika" },
+ *   - wariant główny:  { [algId]: "R U R' U' ..." } — wybór „Ustaw jako główny".
  *
  * Rekord trzymamy per WARIANT (kluczem jest sekwencja ruchów), bo „Domyślny"
  * i np. „Lewa ręka (mirror)" to inne ruchy — ich czasów nie wolno porównywać.
  *
- * Ten sam wzorzec co primaryMovesStore (klucz + load/save w try/catch).
- *
- * Kto z czego korzysta:
- *   - statusy i rekordy — TYLKO Gość (przez localRepo). Zalogowany trzyma je
- *     w chmurze (apiRepo); to, co zostało tu lokalnie, przenosi progressMigration,
- *   - notatki — stan tej przeglądarki, tak samo dla Gościa i zalogowanego.
+ * Kto z tego korzysta: TYLKO Gość (przez localRepo). Zalogowany trzyma całość
+ * w chmurze (apiRepo); to, co zostało tu lokalnie, przenosi progressMigration.
  */
-const STATUSES_KEY = 'cubeverse_alg_statuses'
-const NOTES_KEY = 'cubeverse_alg_notes'
-const PBS_KEY = 'cubeverse_alg_pbs'
+const KEYS = {
+  statuses: 'cubeverse_alg_statuses',
+  pbs: 'cubeverse_alg_pbs',
+  notes: 'cubeverse_alg_notes',
+  primaryMoves: 'cubeverse_primary_moves',
+}
+
+// Ten sam limit co na serwerze (progress.schema.js) — textarea go pilnuje.
+export const MAX_NOTE_LENGTH = 2000
 
 // Dozwolone statusy — StatusBadge w AlgorithmCard nie zna innych wartości
 // i wywróciłby się na nieznanym statusie, więc śmieci odsiewamy przy wczytaniu.
@@ -45,11 +48,8 @@ function saveMap(key, map) {
   }
 }
 
-export const loadStatuses = () => loadMap(STATUSES_KEY, (v) => VALID_STATUSES.includes(v))
-export const saveStatuses = (map) => saveMap(STATUSES_KEY, map)
-
-export const loadNotes = () => loadMap(NOTES_KEY, (v) => typeof v === 'string')
-export const saveNotes = (map) => saveMap(NOTES_KEY, map)
+export const loadStatuses = () => loadMap(KEYS.statuses, (v) => VALID_STATUSES.includes(v))
+export const saveStatuses = (map) => saveMap(KEYS.statuses, map)
 
 // Wpis rekordów jednego algorytmu: obiekt { sekwencja: ms }, same dodatnie liczby.
 const isPbEntry = (v) =>
@@ -58,14 +58,33 @@ const isPbEntry = (v) =>
   !Array.isArray(v) &&
   Object.values(v).every((ms) => Number.isFinite(ms) && ms > 0)
 
-export const loadPbs = () => loadMap(PBS_KEY, isPbEntry)
-export const savePbs = (map) => saveMap(PBS_KEY, map)
+export const loadPbs = () => loadMap(KEYS.pbs, isPbEntry)
+export const savePbs = (map) => saveMap(KEYS.pbs, map)
 
-/** Kasuje lokalne statusy i rekordy — po udanym przeniesieniu ich do chmury. */
-export function clearProgress() {
+// Pusta notatka to brak notatki — nie trzymamy (i nie importujemy) pustych wpisów.
+export const loadNotes = () => loadMap(KEYS.notes, (v) => typeof v === 'string' && v.trim() !== '')
+export const saveNotes = (map) => saveMap(KEYS.notes, map)
+
+export const loadPrimaryMoves = () => loadMap(KEYS.primaryMoves, (v) => typeof v === 'string' && v !== '')
+export const savePrimaryMoves = (map) => saveMap(KEYS.primaryMoves, map)
+
+/** Wszystkie części postępu naraz — kształt taki jak z GET /api/progress. */
+export function loadLocalProgress() {
+  return {
+    statuses: loadStatuses(),
+    pbs: loadPbs(),
+    notes: loadNotes(),
+    primaryMoves: loadPrimaryMoves(),
+  }
+}
+
+/**
+ * Kasuje wskazane części lokalnego postępu — po udanym przeniesieniu ich do
+ * chmury. `parts` to nazwy kluczy z KEYS (domyślnie wszystkie).
+ */
+export function clearProgress(parts = Object.keys(KEYS)) {
   try {
-    localStorage.removeItem(STATUSES_KEY)
-    localStorage.removeItem(PBS_KEY)
+    for (const part of parts) localStorage.removeItem(KEYS[part])
   } catch {
     /* jw. */
   }

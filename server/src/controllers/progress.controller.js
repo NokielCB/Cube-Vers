@@ -1,11 +1,20 @@
 /**
- * Kontroler postępu nauki algorytmów — statusy z Biblioteki i rekordy
- * z trybu treningu. userId zawsze z tokenu (req.userId), nigdy z body.
+ * Kontroler postępu nauki algorytmów — statusy z Biblioteki, rekordy
+ * z trybu treningu, notatki i „Ustaw jako główny". userId zawsze z tokenu (req.userId), nigdy z body.
  */
-import { getProgress, importProgress, recordPb, setStatus } from '../services/progress.service.js'
+import {
+  getProgress,
+  importProgress,
+  recordPb,
+  setNote,
+  setPrimary,
+  setStatus,
+} from '../services/progress.service.js'
 import {
   importProgressSchema,
+  noteBodySchema,
   pbBodySchema,
+  primaryBodySchema,
   statusBodySchema,
   statusParamsSchema,
 } from '../validators/progress.schema.js'
@@ -15,7 +24,7 @@ function zodError(res, err) {
   return res.status(tooMany ? 413 : 400).json({ error: err.issues[0]?.message ?? 'Niepoprawne dane.' })
 }
 
-// GET /api/progress → { statuses, pbs }
+// GET /api/progress → { statuses, pbs, notes, primaryMoves }
 export async function getAllProgress(req, res, next) {
   try {
     res.json(await getProgress(req.userId))
@@ -47,7 +56,31 @@ export async function postPb(req, res, next) {
   }
 }
 
-// POST /api/progress/import  { statuses, pbs } — scalenie danych z localStorage.
+// PUT /api/progress/notes/:algId  { note } — cały tekst notatki ('' = usuń)
+export async function putNote(req, res, next) {
+  try {
+    const { algId } = statusParamsSchema.parse(req.params)
+    const { note } = noteBodySchema.parse(req.body)
+    res.json(await setNote(req.userId, algId, note))
+  } catch (err) {
+    if (err?.name === 'ZodError') return zodError(res, err)
+    next(err)
+  }
+}
+
+// PUT /api/progress/primary/:algId  { moves } — „Ustaw jako główny"
+export async function putPrimary(req, res, next) {
+  try {
+    const { algId } = statusParamsSchema.parse(req.params)
+    const { moves } = primaryBodySchema.parse(req.body)
+    res.json(await setPrimary(req.userId, algId, moves))
+  } catch (err) {
+    if (err?.name === 'ZodError') return zodError(res, err)
+    next(err)
+  }
+}
+
+// POST /api/progress/import  { statuses, pbs, notes, primaryMoves } — scalenie danych z localStorage.
 export async function postImport(req, res, next) {
   try {
     const data = importProgressSchema.parse(req.body)

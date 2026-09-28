@@ -3,7 +3,6 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useAuth } from './AuthContext'
 import { apiRepo } from '../data/apiRepo'
 import { localRepo } from '../data/localRepo'
-import { clearPrimaryMoves } from '../data/primaryMovesStore'
 import { migrateLegacyMeta } from '../data/legacySessionMeta'
 
 /**
@@ -34,9 +33,6 @@ export function DataProvider({ children }) {
   const [solves, setSolves] = useState([]) // kanoniczne { id, time, scramble, status, createdAt, sessionId }
   const [sessions, setSessions] = useState([]) // nazwane sesje { id, name } (bez „Głównej")
   const [loading, setLoading] = useState(active)
-  // Licznik „wyczyszczeń" — App nasłuchuje go, by przy Wipe zresetować też
-  // swój stan nadpisań „Ustaw jako główny" (primaryMoves), którego tu nie trzymamy.
-  const [wipeSignal, setWipeSignal] = useState(0)
 
   // Ładowanie historii i sesji przy zmianie trybu/repo.
   useEffect(() => {
@@ -123,14 +119,12 @@ export function DataProvider({ children }) {
   // Wipe All Solves — kasuje CAŁĄ historię (Gość: localStorage, Zalogowany:
   // DELETE /api/solves/clear). Po sukcesie natychmiast zeruje stan do [] bez
   // przeładowania strony — Dashboard i wykresy same się odświeżają.
-  // Sesje (same nazwy) zostają — kasujemy tylko czasy.
+  // Sesje (same nazwy) zostają — kasujemy tylko czasy. Postęp nauki algorytmów
+  // (statusy, rekordy, notatki, wariant główny) to nie historia ułożeń — Wipe
+  // go nie rusza, dokładnie tak jak obiecuje okno potwierdzenia.
   const clearAll = useCallback(async () => {
     await repo.clearAll()
     setSolves([])
-    // Wipe obejmuje też lokalne nadpisania algorytmów: kasujemy klucz w
-    // localStorage i podbijamy sygnał, na który App zeruje stan w pamięci.
-    clearPrimaryMoves()
-    setWipeSignal((n) => n + 1)
     invalidateAnalytics()
   }, [repo, invalidateAnalytics])
 
@@ -192,7 +186,6 @@ export function DataProvider({ children }) {
       createSession,
       renameSession,
       deleteSession,
-      wipeSignal,
     }),
     [
       repo,
@@ -207,7 +200,6 @@ export function DataProvider({ children }) {
       createSession,
       renameSession,
       deleteSession,
-      wipeSignal,
     ],
   )
 

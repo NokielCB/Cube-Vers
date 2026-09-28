@@ -66,8 +66,9 @@ export const apiRepo = {
     return api.deleteSession(id)
   },
 
-  // — postęp nauki algorytmów (statusy + rekordy z treningu) —
-  // → { statuses: { algId: status }, pbs: { algId: { sekwencja: ms } } }
+  // — postęp nauki algorytmów (statusy, rekordy z treningu, notatki, wariant główny) —
+  // → { statuses: { algId: status }, pbs: { algId: { sekwencja: ms } },
+  //     notes: { algId: tekst }, primaryMoves: { algId: sekwencja } }
   async getProgress() {
     return api.getProgress()
   },
@@ -80,5 +81,13 @@ export const apiRepo = {
   // od zgłoszonego, jeśli inne urządzenie ma już lepszy czas).
   async recordAlgPb(algId, moves, time) {
     return api.recordAlgPb({ algId, moves, time })
+  },
+
+  async setAlgNote(algId, note) {
+    return api.setAlgNote(algId, note)
+  },
+
+  async setAlgPrimary(algId, moves) {
+    return api.setAlgPrimary(algId, moves)
   },
 }
