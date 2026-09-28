@@ -4,7 +4,11 @@
  * modalu: alternatywne sekwencje i popularność.
  *
  * Osobiste rekordy NIE żyją tutaj — to realne pomiary z trybu treningu
- * (App → algorithmProgressStore), liczone osobno dla każdego wariantu.
+ * (ProgressContext), liczone osobno dla każdego wariantu.
+ *
+ * Każdy wariant jest sprawdzony symulatorem: rozwiązuje TEN SAM przypadek
+ * co sekwencja domyślna (z dokładnością do AUF). Zmiana `moves` istniejącego
+ * wariantu „gubi" jego rekord — sekwencja jest kluczem PB.
  *
  * Braki są bezpieczne — getDetails() dokłada sensowny fallback.
  */
@@ -36,7 +40,10 @@ const DETAILS = {
   },
   'pll-t': {
     popularity: 99,
-    alternatives: [{ label: 'Wariant z r (wide)', moves: "r U R' U' r' F R F'" }],
+    alternatives: [
+      { label: "Zakończenie F' L' U L", moves: "R U R' U' R' F R2 U' R' U F' L' U L" },
+      { label: 'Wariant z u (wide)', moves: "R2 u R2 u' R2 F2 u' F2 u F2" },
+    ],
   },
   'pll-ua': {
     popularity: 95,
@@ -45,6 +52,114 @@ const DETAILS = {
   'pll-h': {
     popularity: 93,
     alternatives: [{ label: 'Odbicie U/U2', moves: "M2 U' M2 U2 M2 U' M2" }],
+  },
+  'pll-jb': {
+    alternatives: [
+      { label: 'Wariant R/L (bez F)', moves: "R U2 R' U' R U2 L' U R' U' L" },
+      { label: 'Wariant z r (wide)', moves: "r' F R F' r U2 R' U R U2 R'" },
+    ],
+  },
+  'pll-y': {
+    alternatives: [
+      { label: "Wariant F R' F", moves: "F R' F R2 U' R' U' R U R' F' R U R' U' F'" },
+      { label: "Krótki (R2 U')", moves: "R2 U' R2 U' R2 U F U F' R2 F U' F'" },
+    ],
+  },
+  'pll-aa': {
+    alternatives: [
+      { label: 'Start z l (bez pierwszego x)', moves: "l' U R' D2 R U' R' D2 R2 x'" },
+      { label: "Wariant z x' (od drugiej strony)", moves: "y x' R2 D2 R' U' R D2 R' U R' x" },
+    ],
+  },
+  'pll-ab': {
+    alternatives: [
+      { label: 'Bez rotacji (B, D)', moves: "R' B' R U' R D R' U R D' R2 B R" },
+      { label: "Wariant z x' (od drugiej strony)", moves: "y x' R U' R D2 R' U R D2 R2 x" },
+    ],
+  },
+  'pll-e': {
+    alternatives: [
+      { label: 'Bez rotacji x (R, D)', moves: "y R' U' R' D' R U' R' D R U R' D' R U R' D R2" },
+      { label: 'Wariant z F (bez D)', moves: "R2 U F' R' U R U' R' U R U' R' U R U' F U' R2" },
+    ],
+  },
+  'pll-f': {
+    alternatives: [
+      { label: 'Krótki (14 ruchów)', moves: "R' U R U' R2 F' U' F U R F R' F' R2" },
+      { label: 'Wariant z R2 F', moves: "y R2 F R F' R' U' F' U F R2 U R' U' R" },
+    ],
+  },
+  'pll-ga': {
+    alternatives: [
+      { label: 'Wariant z u (wide)', moves: "R2 u R' U R' U' R u' R2 F' U F" },
+      { label: "Start od D'", moves: "D' R2 U R' U R' U' R U' R2 U' D R' U R" },
+    ],
+  },
+  'pll-gb': {
+    alternatives: [
+      { label: 'Start od D', moves: "D R' U' R U D' R2 U R' U R U' R U' R2" },
+      { label: 'Wariant z u (wide)', moves: "y F' U' F R2 u R' U R U' R u' R2" },
+    ],
+  },
+  'pll-gc': {
+    alternatives: [
+      { label: 'Wariant z u (wide)', moves: "R2 u' R U' R U R' u R2 f R' f'" },
+      { label: 'Start od D', moves: "D R2 U' R U' R U R' U R2 D' U R U' R'" },
+    ],
+  },
+  'pll-gd': {
+    alternatives: [
+      { label: "Start od D'", moves: "D' R U R' U' D R2 U' R U' R' U R' U R2" },
+      { label: 'Wariant z u (wide)', moves: "R U R' y' R2 u' R U' R' U R' u R2" },
+    ],
+  },
+  'pll-ja': {
+    alternatives: [
+      { label: 'Lewa ręka (L F)', moves: "L' U' L F L' U' L U L F' L2 U L" },
+      { label: 'Wariant R/L', moves: "R U' L' U R' U2 L U' L' U2 L" },
+    ],
+  },
+  'pll-na': {
+    alternatives: [
+      { label: 'Krótszy (R F)', moves: "R F U' R' U R U F' R2 F' R U R U' R' F" },
+      { label: "Powtórzenia r' D r U2", moves: "r' D r U2 r' D r U2 r' D r U2 r' D r U2 r' D r" },
+    ],
+  },
+  'pll-nb': {
+    alternatives: [
+      { label: 'Wariant R/L', moves: "R' U L' U2 R U' L R' U L' U2 R U' L" },
+      { label: 'Wariant z r (wide)', moves: "r' D' F r U' r' F' D r2 U r' U' r' F r F'" },
+    ],
+  },
+  'pll-ra': {
+    alternatives: [
+      { label: 'Wariant z F (bez D)', moves: "y R U R' F' R U2 R' U2 R' F R U R U2 R'" },
+      { label: 'Lewa ręka', moves: "L U2 L' U2 L F' L' U' L U L F L2" },
+    ],
+  },
+  'pll-rb': {
+    alternatives: [
+      { label: 'Wariant z D', moves: "R' U2 R' D' R U' R' D R U R U' R' U' R" },
+      { label: 'Wariant z R2 F', moves: "y R2 F R U R U' R' F' R U2 R' U2 R" },
+    ],
+  },
+  'pll-ub': {
+    alternatives: [
+      { label: 'Wersja R U (bez slice)', moves: "R' U R' U' R' U' R' U R U R2" },
+      { label: 'Wariant R2 U', moves: "y2 R2 U R U R' U' R' U' R' U R'" },
+    ],
+  },
+  'pll-v': {
+    alternatives: [
+      { label: 'Wariant z f (wide)', moves: "R' U R U' R' f' U' R U2 R' U' R U' R' f R" },
+      { label: 'Wariant z y w środku', moves: "R' U R' U' y R' F' R2 U' R' U R' F R F" },
+    ],
+  },
+  'pll-z': {
+    alternatives: [
+      { label: "Start od M'", moves: "M' U' M2 U' M2 U' M' U2 M2" },
+      { label: "Odbicie U'", moves: "y M2 U' M2 U' M' U2 M2 U2 M'" },
+    ],
   },
 }
 

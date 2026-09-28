@@ -21,13 +21,21 @@ export function isRotation(token = '') {
   return ROTATION_RE.test(token)
 }
 
+// Rotacja wokół osi pionowej (y, y', y2) — ostatnia warstwa zostaje na górze.
+const Y_ROTATION_RE = /^y(['2])?$/
+
 /**
  * Oddziela WIODĄCĄ rotację orientacyjną od właściwej sekwencji ruchów.
- * Zdejmujemy tylko rotacje z początku — rotacja w środku algorytmu realnie
- * przeorientowuje kolejne ruchy, więc jej nie ruszamy (zostaje w `moves`).
+ *
+ * Odcinamy tylko wiodące y: dla algorytmu ostatniej warstwy to jedynie
+ * „z której strony zacznij" — ten sam przypadek, obejrzany z innego boku.
+ * Wiodące x i z zostają, bo przewracają kostkę i kolejne ruchy lecą już
+ * z inną ścianą na górze (np. A-perm „x R' U R' D2 R U' R' D2 R2 x'").
+ * Bez x to byłby zupełnie inny algorytm. Rotacje w środku też zostają.
  *
  *   "y R U R' U'"      → { rotation: "y",     moves: "R U R' U'" }
  *   "y2 R U R'"        → { rotation: "y2",    moves: "R U R'" }
+ *   "y x' R2 D2 R'"    → { rotation: "y",     moves: "x' R2 D2 R'" }
  *   "R U R'"           → { rotation: "",      moves: "R U R'" }
  *
  * @param {string} sequence
@@ -36,7 +44,7 @@ export function isRotation(token = '') {
 export function splitOrientation(sequence = '') {
   const tokens = String(sequence).trim().split(/\s+/).filter(Boolean)
   const rotation = []
-  while (tokens.length && isRotation(tokens[0])) rotation.push(tokens.shift())
+  while (tokens.length && Y_ROTATION_RE.test(tokens[0])) rotation.push(tokens.shift())
   return { rotation: rotation.join(' '), moves: tokens.join(' ') }
 }
 

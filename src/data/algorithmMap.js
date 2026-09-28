@@ -7,6 +7,12 @@
  *
  * RELATIONS: [source, target] — logiczna kolejność nauki (od prostszych
  *   przypadków do trudniejszych / ich rozwinięć). To są krawędzie grafu.
+ *
+ * PLL to drzewo w kolumnach (co 240 px): każdy przypadek stoi o kolumnę
+ * dalej niż ten, od którego się go uczy. Krawędź wychodzi z prawego boku
+ * węzła i wchodzi w lewy bok następnego (Handle w AlgorithmNode), więc
+ * biegnie tylko w szczelinie między kolumnami i nie przecina innych węzłów.
+ * Wiersze co 140 px — węzeł ma ok. 100 px wysokości.
  */
 
 export const NODE_POSITIONS = {
@@ -19,11 +25,32 @@ export const NODE_POSITIONS = {
   'oll-22': { x: 420, y: 560 }, // Pi
   'oll-57': { x: 590, y: 190 },
   // ——— PLL ———
-  'pll-ua': { x: 860, y: 140 },
-  'pll-h': { x: 1140, y: 70 },
-  'pll-t': { x: 900, y: 380 },
-  'pll-jb': { x: 1180, y: 360 },
-  'pll-y': { x: 1040, y: 590 },
+  // kolumna 0: wejście z OLL
+  'pll-ua': { x: 860, y: 320 },
+  // kolumna 1: druga połowa EPLL i T-perm, od którego rośnie reszta
+  'pll-ub': { x: 1100, y: 40 },
+  'pll-h': { x: 1100, y: 180 },
+  'pll-t': { x: 1100, y: 740 },
+  // kolumna 2
+  'pll-z': { x: 1340, y: 180 },
+  'pll-f': { x: 1340, y: 320 },
+  'pll-jb': { x: 1340, y: 460 },
+  'pll-aa': { x: 1340, y: 810 },
+  'pll-ga': { x: 1340, y: 1020 },
+  'pll-gc': { x: 1340, y: 1160 },
+  // kolumna 3
+  'pll-ja': { x: 1580, y: 320 },
+  'pll-ra': { x: 1580, y: 460 },
+  'pll-y': { x: 1580, y: 600 },
+  'pll-ab': { x: 1580, y: 740 },
+  'pll-e': { x: 1580, y: 880 },
+  'pll-gb': { x: 1580, y: 1020 },
+  'pll-gd': { x: 1580, y: 1160 },
+  // kolumna 4: przypadki po przekątnej (od Y) i domknięcie R-perm
+  'pll-rb': { x: 1820, y: 460 },
+  'pll-v': { x: 1820, y: 600 },
+  'pll-na': { x: 1820, y: 740 },
+  'pll-nb': { x: 1820, y: 880 },
 }
 
 export const RELATIONS = [
@@ -37,10 +64,29 @@ export const RELATIONS = [
   ['oll-27', 'oll-57'],
   // most OLL → PLL
   ['oll-21', 'pll-ua'],
-  // PLL: od U-perm/H (M-slice), przez T, po J i Y
+  // PLL — krawędzie (EPLL): U-permy, potem H i Z
+  ['pll-ua', 'pll-ub'],
   ['pll-ua', 'pll-h'],
+  ['pll-h', 'pll-z'],
+  // T-perm otwiera zamiany sąsiednich narożników
   ['pll-ua', 'pll-t'],
+  ['pll-t', 'pll-f'],
   ['pll-t', 'pll-jb'],
+  ['pll-jb', 'pll-ja'],
+  ['pll-jb', 'pll-ra'],
+  ['pll-ra', 'pll-rb'],
+  // same narożniki: A-permy i E
+  ['pll-t', 'pll-aa'],
+  ['pll-aa', 'pll-ab'],
+  ['pll-aa', 'pll-e'],
+  // G-permy parami
+  ['pll-t', 'pll-ga'],
+  ['pll-ga', 'pll-gb'],
+  ['pll-t', 'pll-gc'],
+  ['pll-gc', 'pll-gd'],
+  // zamiana po przekątnej: Y, potem V i N-permy
   ['pll-jb', 'pll-y'],
-  ['pll-t', 'pll-y'],
+  ['pll-y', 'pll-v'],
+  ['pll-y', 'pll-na'],
+  ['pll-y', 'pll-nb'],
 ]
