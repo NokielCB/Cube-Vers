@@ -16,27 +16,351 @@ import { ALGORITHMS } from './algorithms'
 import { splitOrientation } from '../lib/notation'
 
 const DETAILS = {
-  'oll-27': {
-    popularity: 98,
+  'oll-1': {
     alternatives: [
-      { label: 'Lewa ręka (mirror)', moves: "L' U' L U' L' U2 L" },
-      { label: 'Wide / one-look', moves: "R U R' U R U2' R'" },
+      { label: 'Od innej strony · wide · z D', moves: "y R U' R2 D' r U' r' D R2 U R'" },
+      { label: 'Ze slice · wide', moves: "f R U R' U' R f' U' r' U' R U M'" },
+    ],
+  },
+  'oll-2': {
+    alternatives: [
+      { label: 'Od innej strony · wide · z D', moves: "y' R U' R2 D' r U r' D R2 U R'" },
+      { label: 'Ze slice · wide', moves: "F R U R' U' S R U R' U' f'" },
+    ],
+  },
+  'oll-3': {
+    alternatives: [
+      { label: 'Od innej strony · wide', moves: "y' f R U R' U' f' U' F R U R' U' F'" },
+      { label: 'Ze slice · wide · krótszy (10)', moves: "r' R2 U R' U r U2 r' U M'" },
+    ],
+  },
+  'oll-4': {
+    alternatives: [
+      { label: 'Od innej strony · wide', moves: "y' f R U R' U' f' U F R U R' U' F'" },
+      { label: 'Ze slice', moves: "R' F R F' U' S R' U' R U R S'" },
+    ],
+  },
+  'oll-5': {
+    alternatives: [
+      { label: 'Od innej strony · lewą ręką · wide', moves: "y2 l' U2 L U L' U l" },
+      { label: 'Od innej strony · wide', moves: "y2 R' F2 r U r' F R" },
+    ],
+  },
+  'oll-6': {
+    alternatives: [
+      { label: 'Z D', moves: "F U' R2 D R' U' R D' R2 U F'" },
+      { label: 'Od innej strony · lewą ręką · wide', moves: "y2 l U2 L' U' L U' l'" },
+    ],
+  },
+  'oll-7': {
+    alternatives: [
+      { label: 'Ze slice', moves: "S' R U R' U R U2 R' U S" },
+      { label: 'Lewą ręką', moves: "L' U2 L U2 L F' L' F" },
+    ],
+  },
+  'oll-8': {
+    alternatives: [
+      { label: 'Od innej strony · wide', moves: "y2 r' U' R U' R' U2 r" },
+      { label: 'Lewą ręką · wide', moves: "l' U' L U' L' U2 l" },
+    ],
+  },
+  'oll-9': {
+    alternatives: [
+      { label: 'Ze slice · krótszy (9)', moves: "R U2 R' U' S' R U' R' S" },
+      { label: 'Od innej strony · wide · krótszy (10)', moves: "y2 F' U' F r U' r' U r U r'" },
+    ],
+  },
+  'oll-10': {
+    alternatives: [
+      { label: 'Od innej strony · krótszy (10)', moves: "y F U F' R' F R U' R' F' R" },
+      { label: 'Od innej strony · ze slice · krótszy (10)', moves: "y M' R' U2 R U R' U R U M" },
+    ],
+  },
+  'oll-11': {
+    alternatives: [
+      { label: 'Od innej strony · wide', moves: "y2 r U R' U R' F R F' R U2 r'" },
+      { label: 'Ze slice', moves: "S R U R' U R U2 R' U2 S'" },
+    ],
+  },
+  'oll-12': {
+    alternatives: [
+      { label: 'Od innej strony · ze slice', moves: "y' M' R' U' R U' R' U2 R U' M" },
+      { label: 'Inna sekwencja', moves: "F R U R' U' F' U F R U R' U' F'" },
+    ],
+  },
+  'oll-13': {
+    alternatives: [
+      { label: 'Krótszy (10)', moves: "F U R U2 R' U' R U R' F'" },
+      { label: 'Wide · krótszy (10)', moves: "r U' r' U' r U r' F' U F" },
+    ],
+  },
+  'oll-14': {
+    alternatives: [
+      { label: 'Wide', moves: "r U R' U' r' F R2 U R' U' F'" },
+      { label: 'Lewą ręką · wide', moves: "l' U l U l' U' l F U' F'" },
+    ],
+  },
+  'oll-15': {
+    alternatives: [
+      { label: 'Wide', moves: "r' U' r R' U' R U r' U r" },
+      { label: 'Od innej strony · lewą ręką · wide', moves: "y2 l' U' l L' U' L U l' U l" },
+    ],
+  },
+  'oll-16': {
+    alternatives: [
+      { label: 'Ze slice · wide · krótszy (9)', moves: "r U M U R' U' r U' r'" },
+      { label: 'Od innej strony', moves: "y2 R' F R U R' U' F' R U' R' U2 R" },
+    ],
+  },
+  'oll-17': {
+    alternatives: [
+      { label: 'Inna sekwencja', moves: "R U R' U R' F R F' U2 R' F R F'" },
+      { label: 'Od innej strony · ze slice · wide', moves: "y2 F R' F' R2 r' U R U' R' U' M'" },
+    ],
+  },
+  'oll-18': {
+    alternatives: [
+      { label: 'Od innej strony · ze slice · wide · krótszy (12)', moves: "y R U2 R2 F R F' U2 M' U R U' r'" },
+      { label: 'Wide · krótszy (13)', moves: "r U R' U R U2 r2 U' R U' R' U2 r" },
+    ],
+  },
+  'oll-19': {
+    alternatives: [
+      { label: 'Ze slice', moves: "M U R U R' U' M' R' F R F'" },
+      { label: 'Inna sekwencja', moves: "R' U2 F R U R' U' F2 U2 F R" },
+    ],
+  },
+  'oll-20': {
+    alternatives: [
+      { label: 'Ze slice · wide', moves: "r U R' U' M2 U R U' R' U' M'" },
+      { label: 'Ze slice', moves: "M' U2 M U2 M' U M U2 M' U2 M" },
+    ],
+  },
+  'oll-21': {
+    alternatives: [
+      { label: 'Od innej strony', moves: "y R U2 R' U' R U R' U' R U' R'" },
+      { label: 'Od innej strony (2)', moves: "y F R U R' U' R U R' U' R U R' U' F'" },
+    ],
+  },
+  'oll-22': {
+    alternatives: [
+      { label: 'Inna sekwencja', moves: "R' U2 R2 U R2 U R2 U2 R'" },
+      { label: 'Ze slice · wide', moves: "f R U R' U' S' R U R' U' F'" },
+    ],
+  },
+  'oll-23': {
+    alternatives: [
+      { label: 'Od innej strony · z D', moves: "y2 R2 D' R U2 R' D R U2 R" },
+      { label: 'Inna sekwencja', moves: "R U R' U R U2 R2 U' R U' R' U2 R" },
+    ],
+  },
+  'oll-24': {
+    alternatives: [
+      { label: 'Wide · krótszy (8)', moves: "r U R' U' r' F R F'" },
+      { label: 'Od innej strony · wide · krótszy (8)', moves: "y2 R' F' r U R U' r' F" },
+    ],
+  },
+  'oll-25': {
+    alternatives: [
+      { label: 'Z D', moves: "R U2 R D R' U2 R D' R2" },
+      { label: 'Od innej strony · wide · krótszy (8)', moves: "y F' r U R' U' r' F R" },
     ],
   },
   'oll-26': {
     popularity: 97,
     alternatives: [
-      { label: 'Lewa ręka (mirror)', moves: "L' U2 L U L' U L" },
-      { label: 'Wariant M-slice', moves: "R' U' R U' R' U2 R" },
+      { label: 'Inna sekwencja', moves: "R' U' R U' R' U2 R" },
+      { label: 'Od innej strony · lewą ręką', moves: "y2 L' U' L U' L' U2 L" },
+    ],
+  },
+  'oll-27': {
+    popularity: 98,
+    alternatives: [
+      { label: 'Od innej strony', moves: "y' R' U2 R U R' U R" },
+      { label: 'Od innej strony · lewą ręką', moves: "y L' U2 L U L' U L" },
+    ],
+  },
+  'oll-28': {
+    alternatives: [
+      { label: 'Wide', moves: "r U R' U' r' R U R U' R'" },
+      { label: 'Ze slice · krótszy (8)', moves: "R' F R S R' F' R S'" },
+    ],
+  },
+  'oll-29': {
+    alternatives: [
+      { label: 'Od innej strony', moves: "y R U R' U' R U' R' F' U' F R U R'" },
+      { label: 'Od innej strony · ze slice', moves: "y S' R U R' U' R' F R F' U S" },
+    ],
+  },
+  'oll-30': {
+    alternatives: [
+      { label: 'Od innej strony · wide · z D', moves: "y' r' D' r U' r' D r2 U' r' U r U r'" },
+      { label: 'Od innej strony', moves: "y2 F R' F R2 U' R' U' R U R' F2" },
+    ],
+  },
+  'oll-31': {
+    alternatives: [
+      { label: 'Od innej strony · lewą ręką · ze slice · wide', moves: "y2 S' L' U' L U L F' L' f" },
+      { label: 'Od innej strony · ze slice · wide · krótszy (8)', moves: "y S R U R' U' f' U' F" },
+    ],
+  },
+  'oll-32': {
+    alternatives: [
+      { label: 'Od innej strony · lewą ręką', moves: "y2 L U F' U' L' U L F L'" },
+      { label: 'Z B', moves: "R U B' U' R' U R B R'" },
     ],
   },
   'oll-33': {
     popularity: 88,
-    alternatives: [{ label: 'Wersja z F (Suit Up mirror)', moves: "F' L' U' L U F" }],
+    alternatives: [
+      { label: 'Od innej strony · lewą ręką', moves: "y2 L' U' L U L F' L' F" },
+      { label: 'Od innej strony · wide', moves: "y2 r' F' r U r U' r' F" },
+    ],
+  },
+  'oll-34': {
+    alternatives: [
+      { label: 'Od innej strony', moves: "y2 R U R2 U' R' F R U R U' F'" },
+      { label: 'Wide', moves: "F R U R' U' R' F' r U R U' r'" },
+    ],
+  },
+  'oll-35': {
+    alternatives: [
+      { label: 'Inna sekwencja', moves: "R U2 R2 F R F' R U2 R'" },
+      { label: 'Wide', moves: "f R U R' U' f' R U R' U R U2 R'" },
+    ],
+  },
+  'oll-36': {
+    alternatives: [
+      { label: 'Od innej strony · krótszy (10)', moves: "y R U R2 F' U' F U R2 U2 R'" },
+      { label: 'Od innej strony · lewą ręką', moves: "y2 L' U' L U' L' U L U L F' L' F" },
+    ],
+  },
+  'oll-37': {
+    alternatives: [
+      { label: 'Inna sekwencja', moves: "F R U' R' U' R U R' F'" },
+      { label: 'Od innej strony · wide', moves: "y F' r U r' U' r' F r" },
+    ],
+  },
+  'oll-38': {
+    alternatives: [
+      { label: 'Od innej strony · ze slice · wide · krótszy (10)', moves: "y F R U' R' S U' R U R' f'" },
+      { label: 'Wide', moves: "r U R' U' r' F R U R U' R' F'" },
+    ],
+  },
+  'oll-39': {
+    alternatives: [
+      { label: 'Od innej strony', moves: "y' R U R' F' U' F U R U2 R'" },
+      { label: 'Od innej strony · lewą ręką', moves: "y L F' L' U' L U F U' L'" },
+    ],
+  },
+  'oll-40': {
+    alternatives: [
+      { label: 'Od innej strony', moves: "y R' F R U R' U' F' U R" },
+      { label: 'Wide · z D', moves: "R r D r' U r D' r' U' R'" },
+    ],
+  },
+  'oll-41': {
+    alternatives: [
+      { label: 'Od innej strony · z D · krótszy (10)', moves: "y2 F U R2 D R' U' R D' R2 F'" },
+      { label: 'Od innej strony · ze slice · krótszy (9)', moves: "y' S U' R' F' U' F U R S'" },
+    ],
+  },
+  'oll-42': {
+    alternatives: [
+      { label: 'Inna sekwencja', moves: "R' U' R U' R' U2 R F R U R' U' F'" },
+      { label: 'Od innej strony · ze slice · krótszy (9)', moves: "y F S' R U R' U' F' U S" },
+    ],
+  },
+  'oll-43': {
+    alternatives: [
+      { label: 'Od innej strony · lewą ręką', moves: "y2 F' U' L' U L F" },
+      { label: 'Lewą ręką · wide', moves: "f' L' U' L U f" },
+    ],
+  },
+  'oll-44': {
+    alternatives: [
+      { label: 'Wide', moves: "f R U R' U' f'" },
+      { label: 'Od innej strony · z B', moves: "y R U B U' B' R'" },
+    ],
   },
   'oll-45': {
     popularity: 90,
-    alternatives: [{ label: 'Mirror (lewa)', moves: "f R U R' U' f'" }],
+    alternatives: [
+      { label: 'Od innej strony', moves: "y R' F' U' F U R" },
+      { label: 'Od innej strony · wide', moves: "y2 f U R U' R' f'" },
+    ],
+  },
+  'oll-46': {
+    alternatives: [
+      { label: 'Inna sekwencja', moves: "R' F' U' F R U' R' U2 R" },
+      { label: 'Od innej strony', moves: "y F R U R' U' F' U' R U R' U R U2 R'" },
+    ],
+  },
+  'oll-47': {
+    alternatives: [
+      { label: 'Lewą ręką · krótszy (10)', moves: "F' L' U' L U L' U' L U F" },
+      { label: 'Inna sekwencja', moves: "R' U' R' F R F' R' F R F' U R" },
+    ],
+  },
+  'oll-48': {
+    alternatives: [
+      { label: 'Od innej strony · wide', moves: "y2 f U R U' R' U R U' R' f'" },
+      { label: 'Inna sekwencja', moves: "R U2 R' U' R U R' U2 R' F R F'" },
+    ],
+  },
+  'oll-49': {
+    alternatives: [
+      { label: 'Od innej strony · wide', moves: "y2 r U' r2 U r2 U r2 U' r" },
+      { label: 'Lewą ręką · wide', moves: "l U' l2 U l2 U l2 U' l" },
+    ],
+  },
+  'oll-50': {
+    alternatives: [
+      { label: 'Wide', moves: "r' U r2 U' r2 U' r2 U r'" },
+      { label: 'Od innej strony · z B', moves: "y2 R' F R2 B' R2 F' R2 B R'" },
+    ],
+  },
+  'oll-51': {
+    alternatives: [
+      { label: 'Wide', moves: "f R U R' U' R U R' U' f'" },
+      { label: 'Od innej strony', moves: "y' R' U' R' F R F' R U' R' U2 R" },
+    ],
+  },
+  'oll-52': {
+    alternatives: [
+      { label: 'Z B', moves: "R U R' U R U' B U' B' R'" },
+      { label: 'Wide', moves: "R U R' U R d' R U' R' F'" },
+    ],
+  },
+  'oll-53': {
+    alternatives: [
+      { label: 'Od innej strony · lewą ręką · wide', moves: "y2 l' U' L U' L' U L U' L' U2 l" },
+      { label: 'Od innej strony · wide', moves: "y r' U2 R U R' U' R U R' U r" },
+    ],
+  },
+  'oll-54': {
+    alternatives: [
+      { label: 'Od innej strony · wide', moves: "y' r U2 R' U' R U R' U' R U' r'" },
+      { label: 'Od innej strony · wide (2)', moves: "y' r U r' R U R' U' R U R' U' r U' r'" },
+    ],
+  },
+  'oll-55': {
+    alternatives: [
+      { label: 'Od innej strony · krótszy (12)', moves: "y R' F U R U' R2 F' R2 U R' U' R" },
+      { label: 'Krótszy (11)', moves: "R U2 R2 U' R U' R' U2 F R F'" },
+    ],
+  },
+  'oll-56': {
+    alternatives: [
+      { label: 'Ze slice · wide · krótszy (12)', moves: "r U r' U R U' R' M' U R U2 r'" },
+      { label: 'Wide · krótszy (12)', moves: "F R U R' U' R F' r U R' U' r'" },
+    ],
+  },
+  'oll-57': {
+    alternatives: [
+      { label: 'Od innej strony · ze slice · krótszy (8)', moves: "y R U' R' S' R U R' S" },
+      { label: 'Od innej strony · ze slice · krótszy (8) (2)', moves: "y R U R' S' R U' R' S" },
+    ],
   },
   'pll-t': {
     popularity: 99,
@@ -47,7 +371,10 @@ const DETAILS = {
   },
   'pll-ua': {
     popularity: 95,
-    alternatives: [{ label: 'Wersja R U (bez slice)', moves: "R U' R U R U R U' R' U' R2" }],
+    alternatives: [
+      { label: 'Wersja R U (bez slice)', moves: "R U' R U R U R U' R' U' R2" },
+      { label: 'Wersja R U — cube.academy', moves: "R U R' U R' U' R2 U' R' U R' U R" },
+    ],
   },
   'pll-h': {
     popularity: 93,
@@ -117,6 +444,7 @@ const DETAILS = {
     alternatives: [
       { label: 'Lewa ręka (L F)', moves: "L' U' L F L' U' L U L F' L2 U L" },
       { label: 'Wariant R/L', moves: "R U' L' U R' U2 L U' L' U2 L" },
+      { label: 'Z x i r — cube.academy', moves: "x R2 F R F' R U2 r' U r U2 x'" },
     ],
   },
   'pll-na': {
@@ -129,6 +457,7 @@ const DETAILS = {
     alternatives: [
       { label: 'Wariant R/L', moves: "R' U L' U2 R U' L R' U L' U2 R U' L" },
       { label: 'Wariant z r (wide)', moves: "r' D' F r U' r' F' D r2 U r' U' r' F r F'" },
+      { label: "Zakończenie f R f' — cube.academy", moves: "R' U R U' R' F' U' F R U R' U' R U' f R f'" },
     ],
   },
   'pll-ra': {

@@ -82,8 +82,8 @@ export default function ConstellationPage({ statuses = {}, onOpenAlg }) {
           onNodeClick={onNodeClick}
           fitView
           fitViewOptions={{ padding: 0.25 }}
-          // 0.2, żeby fitView zmieścił całą mapę (pełne PLL) także na telefonie
-          minZoom={0.2}
+          // 0.1, żeby fitView zmieścił całą mapę (57 OLL + 21 PLL) także na telefonie
+          minZoom={0.1}
           maxZoom={1.75}
           nodesDraggable={false}
           nodesConnectable={false}

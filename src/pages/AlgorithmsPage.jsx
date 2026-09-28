@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ArrowUpRight, Layers, Target } from 'lucide-react'
-import { ALGORITHMS, groupsFor } from '../data/algorithms'
+import { ALGORITHMS, CATEGORIES, groupsFor } from '../data/algorithms'
 import AlgorithmCard from '../components/algorithms/AlgorithmCard'
 import FilterBar from '../components/algorithms/FilterBar'
 
@@ -25,24 +25,40 @@ export default function AlgorithmsPage({
   movesFor = (a) => a.moves,
   onOpenAlg,
 }) {
-  const [category, setCategory] = useState('ALL')
+  const [category, setCategory] = useState('OLL')
   const [group, setGroup] = useState(null)
   const [query, setQuery] = useState('')
 
   const groups = useMemo(() => groupsFor(category), [category])
 
-  const filtered = useMemo(() => {
+  const matchesQuery = useMemo(() => {
     const q = query.trim().toLowerCase()
-    return ALGORITHMS.filter(
-      (a) =>
-        (category === 'ALL' || a.category === category) &&
-        (!group || a.group === group) &&
-        (!q ||
-          a.name.toLowerCase().includes(q) ||
-          a.moves.toLowerCase().includes(q) ||
-          a.caseNumber.toLowerCase().includes(q)),
-    )
-  }, [category, group, query])
+    return (a) =>
+      !q ||
+      a.name.toLowerCase().includes(q) ||
+      a.moves.toLowerCase().includes(q) ||
+      a.caseNumber.toLowerCase().includes(q)
+  }, [query])
+
+  const filtered = useMemo(
+    () =>
+      ALGORITHMS.filter(
+        (a) => a.category === category && (!group || a.group === group) && matchesQuery(a),
+      ),
+    [category, group, matchesQuery],
+  )
+
+  // Bez „ALL" wyszukiwarka szuka tylko w bieżącej kategorii. Gdy tu nic nie ma,
+  // a w drugiej kategorii są trafienia, pusty stan podpowiada przejście tam
+  // (np. wpisujesz „T-Perm", będąc w OLL).
+  const otherCategory = CATEGORIES.find((c) => c !== category)
+  const otherMatches = useMemo(
+    () =>
+      query.trim()
+        ? ALGORITHMS.filter((a) => a.category === otherCategory && matchesQuery(a)).length
+        : 0,
+    [otherCategory, query, matchesQuery],
+  )
 
   // Kolejność wg statusu nauki: „w trakcie" na górę, „do nauki" w środku,
   // „nauczone" na sam dół. Sort jest stabilny, więc w obrębie tej samej grupy
@@ -175,6 +191,17 @@ export default function AlgorithmsPage({
           >
             <p className="text-lg font-semibold tracking-tight text-ink-900">Nothing here</p>
             <p className="mt-1.5 text-sm text-ink-400">No algorithms match your query.</p>
+            {otherMatches > 0 && (
+              <button
+                onClick={() => {
+                  setCategory(otherCategory)
+                  setGroup(null)
+                }}
+                className="mt-5 rounded-full border border-ink-900/10 px-4 py-1.5 text-xs font-medium text-ink-700 transition-colors hover:border-ink-900/25 hover:text-ink-950"
+              >
+                {otherMatches} {otherMatches === 1 ? 'match' : 'matches'} in {otherCategory} →
+              </button>
+            )}
           </motion.div>
         )}
       </AnimatePresence>

@@ -2,66 +2,91 @@
  * Struktura "Algorithmic Constellation" — pozycje węzłów i relacje nauki.
  *
  * NODE_POSITIONS: id algorytmu → { x, y } na nieskończonym płótnie.
- *   Lewy klaster = OLL, prawy = PLL. Współrzędne dobrane ręcznie, żeby
- *   mapa oddychała (dużo przestrzeni), zgodnie z estetyką referencji.
+ *   Lewy klaster = OLL, prawy = PLL.
  *
  * RELATIONS: [source, target] — logiczna kolejność nauki (od prostszych
  *   przypadków do trudniejszych / ich rozwinięć). To są krawędzie grafu.
  *
- * PLL to drzewo w kolumnach (co 240 px): każdy przypadek stoi o kolumnę
- * dalej niż ten, od którego się go uczy. Krawędź wychodzi z prawego boku
- * węzła i wchodzi w lewy bok następnego (Handle w AlgorithmNode), więc
- * biegnie tylko w szczelinie między kolumnami i nie przecina innych węzłów.
- * Wiersze co 140 px — węzeł ma ok. 100 px wysokości.
+ * Siatka: kolumny co 240 px (węzeł ma 168 px szerokości), wiersze co 140 px
+ * (węzeł ma ok. 100 px wysokości). Krawędź wychodzi z prawego boku węzła
+ * i wchodzi w lewy bok następnego (Handle w AlgorithmNode), więc gdy łączy
+ * sąsiednie kolumny, biegnie tylko w szczelinie i nie przecina węzłów.
  */
+const COL = 240
+const ROW = 140
+const ORIGIN = 40
+
+const x = (col) => ORIGIN + col * COL
+const y = (row) => ORIGIN + row * ROW
+
+/**
+ * OLL — każdy wiersz to jeden lub kilka łańcuchów (grupy kształtów jak na
+ * cube.academy), ustawionych jeden za drugim. W łańcuchu uczymy się od lewej.
+ * Cross jest na górze, a OLL 21 na jego końcu — z niego idzie most do PLL,
+ * przez puste pola po prawej stronie wierszy 0–2.
+ */
+const OLL_ROWS = [
+  [['oll-27', 'oll-26', 'oll-22', 'oll-24', 'oll-25', 'oll-23', 'oll-21']], // Cross
+  [['oll-45', 'oll-33'], ['oll-6', 'oll-5'], ['oll-28', 'oll-57']], // T · Block · Edges Only
+  [['oll-7', 'oll-8', 'oll-11', 'oll-12', 'oll-40', 'oll-39']], // Lightning
+  [['oll-44', 'oll-43', 'oll-31', 'oll-32'], ['oll-37', 'oll-35', 'oll-9', 'oll-10']], // P · Fish
+  [['oll-48', 'oll-47', 'oll-54', 'oll-53', 'oll-49', 'oll-50'], ['oll-38', 'oll-36']], // Hook · W
+  [['oll-51', 'oll-52', 'oll-56', 'oll-55'], ['oll-16', 'oll-15', 'oll-13', 'oll-14']], // Line · L
+  [['oll-29', 'oll-30', 'oll-41', 'oll-42'], ['oll-46', 'oll-34']], // Awkward · C
+  [['oll-1', 'oll-2', 'oll-17', 'oll-19', 'oll-18', 'oll-4', 'oll-20', 'oll-3']], // Dot
+]
+
+const ollPositions = {}
+const ollRelations = []
+OLL_ROWS.forEach((chains, row) => {
+  let col = 0
+  for (const chain of chains) {
+    chain.forEach((id, i) => {
+      ollPositions[id] = { x: x(col + i), y: y(row) }
+      if (i > 0) ollRelations.push([chain[i - 1], id])
+    })
+    col += chain.length
+  }
+})
+
+// PLL — drzewo w kolumnach: każdy przypadek stoi o kolumnę dalej niż ten,
+// od którego się go uczy. Pierwsza kolumna PLL = 9. kolumna siatki (za OLL).
+const P = 9
+const pll = (col, top) => ({ x: x(P + col), y: top })
 
 export const NODE_POSITIONS = {
-  // ——— OLL ———
-  'oll-45': { x: 40, y: 140 }, // najprostszy — punkt wejścia
-  'oll-33': { x: 320, y: 40 },
-  'oll-27': { x: 60, y: 360 }, // Sune
-  'oll-26': { x: 340, y: 320 }, // Anti-Sune
-  'oll-21': { x: 130, y: 580 }, // H (Double Sune)
-  'oll-22': { x: 420, y: 560 }, // Pi
-  'oll-57': { x: 590, y: 190 },
-  // ——— PLL ———
+  ...ollPositions,
   // kolumna 0: wejście z OLL
-  'pll-ua': { x: 860, y: 320 },
+  'pll-ua': pll(0, 320),
   // kolumna 1: druga połowa EPLL i T-perm, od którego rośnie reszta
-  'pll-ub': { x: 1100, y: 40 },
-  'pll-h': { x: 1100, y: 180 },
-  'pll-t': { x: 1100, y: 740 },
+  'pll-ub': pll(1, 40),
+  'pll-h': pll(1, 180),
+  'pll-t': pll(1, 740),
   // kolumna 2
-  'pll-z': { x: 1340, y: 180 },
-  'pll-f': { x: 1340, y: 320 },
-  'pll-jb': { x: 1340, y: 460 },
-  'pll-aa': { x: 1340, y: 810 },
-  'pll-ga': { x: 1340, y: 1020 },
-  'pll-gc': { x: 1340, y: 1160 },
+  'pll-z': pll(2, 180),
+  'pll-f': pll(2, 320),
+  'pll-jb': pll(2, 460),
+  'pll-aa': pll(2, 810),
+  'pll-ga': pll(2, 1020),
+  'pll-gc': pll(2, 1160),
   // kolumna 3
-  'pll-ja': { x: 1580, y: 320 },
-  'pll-ra': { x: 1580, y: 460 },
-  'pll-y': { x: 1580, y: 600 },
-  'pll-ab': { x: 1580, y: 740 },
-  'pll-e': { x: 1580, y: 880 },
-  'pll-gb': { x: 1580, y: 1020 },
-  'pll-gd': { x: 1580, y: 1160 },
+  'pll-ja': pll(3, 320),
+  'pll-ra': pll(3, 460),
+  'pll-y': pll(3, 600),
+  'pll-ab': pll(3, 740),
+  'pll-e': pll(3, 880),
+  'pll-gb': pll(3, 1020),
+  'pll-gd': pll(3, 1160),
   // kolumna 4: przypadki po przekątnej (od Y) i domknięcie R-perm
-  'pll-rb': { x: 1820, y: 460 },
-  'pll-v': { x: 1820, y: 600 },
-  'pll-na': { x: 1820, y: 740 },
-  'pll-nb': { x: 1820, y: 880 },
+  'pll-rb': pll(4, 460),
+  'pll-v': pll(4, 600),
+  'pll-na': pll(4, 740),
+  'pll-nb': pll(4, 880),
 }
 
 export const RELATIONS = [
-  // OLL: od łatwego T, przez rodzinę Sune, po Pi
-  ['oll-45', 'oll-33'],
-  ['oll-45', 'oll-27'],
-  ['oll-27', 'oll-26'],
-  ['oll-26', 'oll-21'],
-  ['oll-26', 'oll-22'],
-  ['oll-33', 'oll-57'],
-  ['oll-27', 'oll-57'],
+  // OLL: łańcuchy w wierszach (patrz OLL_ROWS)
+  ...ollRelations,
   // most OLL → PLL
   ['oll-21', 'pll-ua'],
   // PLL — krawędzie (EPLL): U-permy, potem H i Z
