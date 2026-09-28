@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { api } from '../lib/api'
 import { localRepo } from '../data/localRepo'
 import { migrateLegacyMeta } from '../data/legacySessionMeta'
+import { importLocalProgress } from '../data/progressMigration'
 
 /**
  * AuthContext — globalny stan sesji z TRZEMA trybami (poza ładowaniem):
@@ -38,11 +39,16 @@ export function AuthProvider({ children }) {
   /**
    * Migracja danych Gościa → chmura. Wywoływana po rejestracji: jeśli w
    * localStorage są lokalne ułożenia lub sesje, wysyłamy je na konto (serwer
-   * podmienia lokalne id sesji na nowe) i czyścimy lokalną kopię.
+   * podmienia lokalne id sesji na nowe) i czyścimy lokalną kopię. To samo
+   * robimy z postępem nauki (statusy algorytmów + rekordy z treningu).
    * Best-effort — błąd migracji nie blokuje wejścia do apki, a dane Gościa
    * zostają wtedy w przeglądarce (nic nie ginie).
    */
   const migrateGuestData = useCallback(async () => {
+    // Postęp nauki idzie osobnym żądaniem — błąd jednego importu nie blokuje drugiego.
+    await importLocalProgress().catch((err) =>
+      console.error('[Auth] Import postępu nauki Gościa nie powiódł się:', err),
+    )
     // Stare kary/sesje Gościa (sprzed przeniesienia ich do danych) muszą trafić
     // do lokalnych czasów PRZED eksportem — po imporcie czasy dostają nowe id
     // i stare wpisy nie miałyby już do czego się przypiąć.

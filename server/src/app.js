@@ -12,6 +12,7 @@ import solveRoutes from './routes/solve.routes.js'
 import friendRoutes from './routes/friend.routes.js'
 import analyticsRoutes from './routes/analytics.routes.js'
 import sessionRoutes from './routes/session.routes.js'
+import progressRoutes from './routes/progress.routes.js'
 import { errorHandler } from './middleware/errorHandler.js'
 import { protectRoute } from './middleware/auth.js'
 
@@ -43,6 +44,8 @@ app.use(cookieParser()) // parsuje req.cookies (potrzebne protectRoute)
 // anonim nie mógł zmuszać serwera do parsowania megabajtów. Globalny parser
 // niżej widzi już sparsowane body i je pomija.
 app.post('/api/solves/import', protectRoute, express.json({ limit: '2mb' }))
+// Import postępu algorytmów (statusy + rekordy z localStorage) — ta sama zasada.
+app.post('/api/progress/import', protectRoute, express.json({ limit: '512kb' }))
 app.use(express.json({ limit: '16kb' })) // ochrona przed wielkim payloadem
 
 app.get('/health', (_req, res) => res.json({ ok: true }))
@@ -51,6 +54,7 @@ app.use('/api/auth', authRoutes)
 app.use('/api/user', userRoutes)
 app.use('/api/solves', solveRoutes)
 app.use('/api/sessions', sessionRoutes)
+app.use('/api/progress', progressRoutes)
 app.use('/api/friends', friendRoutes)
 app.use('/api/analytics', analyticsRoutes)
 

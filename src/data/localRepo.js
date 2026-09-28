@@ -2,7 +2,8 @@
  * localRepo — implementacja repozytorium solve'ów i sesji oparta o localStorage.
  * Używana w TRYBIE GOŚCIA. Ma dokładnie ten sam interfejs co apiRepo:
  *   getSolves, addSolve, updateSolve, deleteSolve, clearAll, getAnalytics,
- *   getSessions, createSession, renameSession, deleteSession
+ *   getSessions, createSession, renameSession, deleteSession,
+ *   getProgress, setAlgStatus, recordAlgPb
  * (+ exportAll / exportSessions / clear do migracji Gościa → konto).
  * Dzięki temu reszta apki nie wie, że dane siedzą w przeglądarce.
  *
@@ -10,6 +11,7 @@
  * Kanoniczny kształt sesji:   { id, name, createdAt }. sessionId null = „Główna".
  */
 import { computeAnalytics } from './analyticsLocal'
+import { loadPbs, loadStatuses, savePbs, saveStatuses } from './algorithmProgressStore'
 
 const KEY = 'cubeverse_guest_solves'
 const SESSIONS_KEY = 'cubeverse_guest_sessions'
@@ -118,6 +120,25 @@ export const localRepo = {
     writeSessions(readSessions().filter((s) => s.id !== id))
     write(read().map((s) => (s.sessionId === id ? { ...s, sessionId: null } : s)))
     return { ok: true }
+  },
+
+  // — postęp nauki algorytmów (statusy + rekordy z treningu) —
+  // Ten sam kształt i ta sama zasada „tylko lepszy czas" co na serwerze.
+  async getProgress() {
+    return { statuses: loadStatuses(), pbs: loadPbs() }
+  },
+
+  async setAlgStatus(algId, status) {
+    saveStatuses({ ...loadStatuses(), [algId]: status })
+    return { algId, status }
+  },
+
+  async recordAlgPb(algId, moves, time) {
+    const all = loadPbs()
+    const cur = all[algId]?.[moves]
+    if (cur != null && cur <= time) return { algId, moves, time: cur }
+    savePbs({ ...all, [algId]: { ...all[algId], [moves]: time } })
+    return { algId, moves, time }
   },
 
   // — pomocnicze do migracji Gościa → chmura —

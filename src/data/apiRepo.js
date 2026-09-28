@@ -65,4 +65,20 @@ export const apiRepo = {
   async deleteSession(id) {
     return api.deleteSession(id)
   },
+
+  // — postęp nauki algorytmów (statusy + rekordy z treningu) —
+  // → { statuses: { algId: status }, pbs: { algId: { sekwencja: ms } } }
+  async getProgress() {
+    return api.getProgress()
+  },
+
+  async setAlgStatus(algId, status) {
+    return api.setAlgStatus(algId, status)
+  },
+
+  // → { algId, moves, time } — rekord obowiązujący po zapisie (może być lepszy
+  // od zgłoszonego, jeśli inne urządzenie ma już lepszy czas).
+  async recordAlgPb(algId, moves, time) {
+    return api.recordAlgPb({ algId, moves, time })
+  },
 }

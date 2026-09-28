@@ -1,10 +1,15 @@
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
-import { Check, Hand, Play, Sparkles, Trophy, X } from 'lucide-react'
+import { ArrowRight, Check, Hand, Play, Sparkles, Timer, Trophy, X } from 'lucide-react'
 import Cube3D from '../cube/Cube3D'
-import { getAlternatives, getDetails, isAlternativeActive } from '../../data/algorithmDetails'
+import Notation from './Notation'
+import {
+  activeAlternative,
+  getAlternatives,
+  getDetails,
+  isAlternativeActive,
+} from '../../data/algorithmDetails'
 import { formatTime } from '../../lib/formatTime'
-import { isRotation } from '../../lib/notation'
 
 /**
  * AlgorithmModal — luksusowa, centralna karta szczegółów (Center Overlay).
@@ -15,46 +20,19 @@ import { isRotation } from '../../lib/notation'
  * AnimatePresence żyje w rodzicu (AlgorithmsPage) — tu renderujemy treść
  * tylko gdy `alg` istnieje, dzięki czemu animacja wyjścia zdąży się odegrać.
  *
+ * Rekordy (`pbs`) są per WARIANT: klucz to sekwencja ruchów wariantu.
+ * „Twój PB" w statystykach pokazuje rekord wariantu ustawionego jako główny.
+ *
  * @param {{
  *   alg: object|null,
  *   onClose: ()=>void,
  *   onSetPrimary: (id:string, moves:string)=>void,
  *   notes: string,
  *   onNotesChange: (id:string, text:string)=>void,
+ *   pbs: Record<string, number>,
+ *   onTrain: (id:string, moves:string)=>void,
  * }} props
  */
-
-function Notation({ moves, tone = 'default' }) {
-  const chip =
-    tone === 'muted'
-      ? 'border-ink-900/[0.06] bg-white/50 text-ink-500'
-      : 'border-ink-900/[0.06] bg-ink-900/[0.03] text-ink-700'
-  return (
-    <div className="flex flex-wrap gap-1.5 font-mono text-[13px]">
-      {moves
-        .split(' ')
-        .filter(Boolean)
-        .map((m, i) =>
-          // Rotacja całej kostki to wskazówka orientacji, a nie ruch —
-          // renderujemy ją inaczej (przerywana, kursywa), żeby nigdy nie
-          // wyglądała jak zwykły token R/U/F.
-          isRotation(m) ? (
-            <span
-              key={`${m}-${i}`}
-              title="Rotacja całej kostki — orientacja startowa"
-              className="rounded-lg border border-dashed border-ink-900/15 px-1.5 py-0.5 italic text-ink-400"
-            >
-              {m}
-            </span>
-          ) : (
-            <span key={`${m}-${i}`} className={`rounded-lg border px-1.5 py-0.5 ${chip}`}>
-              {m}
-            </span>
-          ),
-        )}
-    </div>
-  )
-}
 
 function Difficulty({ n }) {
   return (
@@ -81,7 +59,15 @@ function Stat({ Icon, label, value }) {
   )
 }
 
-export default function AlgorithmModal({ alg, onClose, onSetPrimary, notes = '', onNotesChange }) {
+export default function AlgorithmModal({
+  alg,
+  onClose,
+  onSetPrimary,
+  notes = '',
+  onNotesChange,
+  pbs = {},
+  onTrain,
+}) {
   // Sygnał odtwarzania 3D — inkrementacja uruchamia sekwencję w Cube3D.
   const [playSignal, setPlaySignal] = useState(0)
 
@@ -101,6 +87,7 @@ export default function AlgorithmModal({ alg, onClose, onSetPrimary, notes = '',
 
   if (!alg) return null
   const details = getDetails(alg)
+  const active = activeAlternative(alg) // wariant „główny" — jego PB i jego trenujemy
 
   return (
     // backdrop — rozmycie całej apki + 10% przyciemnienie; klik zamyka
@@ -168,11 +155,11 @@ export default function AlgorithmModal({ alg, onClose, onSetPrimary, notes = '',
             <div className="mt-6 grid grid-cols-3 gap-3">
               <Stat Icon={Sparkles} label="Trudność" value={<Difficulty n={alg.difficulty} />} />
               <Stat Icon={Hand} label="Popularność" value={`${details.popularity}%`} />
-              <Stat Icon={Trophy} label="Twój PB" value={formatTime(details.pb)} />
+              <Stat Icon={Trophy} label="Twój PB" value={formatTime(pbs[active.moves])} />
             </div>
           </div>
 
-          {/* ——— PRAWA: alternatywy + tipsy + notatki ——— */}
+          {/* ——— PRAWA: alternatywy + trening + notatki ——— */}
           <div className="flex flex-col gap-8">
             <section>
               <h3 className="text-sm font-semibold tracking-tight text-ink-950">
@@ -185,20 +172,32 @@ export default function AlgorithmModal({ alg, onClose, onSetPrimary, notes = '',
                   // „Domyślny" + warianty; stan „Aktywny" liczy wspólny helper
                   // (ta sama sekwencja po odcięciu wiodącej rotacji).
                   const isActive = isAlternativeActive(alt, alg)
+                  const altPb = pbs[alt.moves] // każdy wariant ma własny rekord
                   return (
                     <div
                       key={alt.moves}
                       className="rounded-2xl border border-ink-900/[0.06] bg-white/40 p-4"
                     >
-                      <div className="mb-3 flex items-center justify-between">
-                        <span className="text-[11px] font-medium uppercase tracking-[0.12em] text-ink-400">
-                          {alt.label}
-                        </span>
+                      <div className="mb-3 flex items-center justify-between gap-3">
+                        <div className="flex min-w-0 flex-wrap items-center gap-2">
+                          <span className="text-[11px] font-medium uppercase tracking-[0.12em] text-ink-400">
+                            {alt.label}
+                          </span>
+                          {altPb != null && (
+                            <span
+                              title="Twój rekord w tym wariancie"
+                              className="flex items-center gap-1 rounded-full bg-ink-900/[0.04] px-2 py-0.5 font-mono text-[10px] tabular-nums text-ink-500"
+                            >
+                              <Trophy size={10} strokeWidth={1.75} />
+                              {formatTime(altPb)}
+                            </span>
+                          )}
+                        </div>
                         <motion.button
                           whileTap={{ scale: 0.96 }}
                           disabled={isActive}
                           onClick={() => onSetPrimary(alg.id, alt.moves)}
-                          className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-medium transition-colors duration-200 ${
+                          className={`flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-medium transition-colors duration-200 ${
                             isActive
                               ? 'cursor-default border-transparent bg-ink-950 text-alabaster-50'
                               : 'border-ink-900/10 text-ink-500 hover:text-ink-950'
@@ -220,13 +219,28 @@ export default function AlgorithmModal({ alg, onClose, onSetPrimary, notes = '',
               </div>
             </section>
 
+            {/* trening — przenosi do Timera w dedykowanej sesji tego wariantu */}
             <section>
               <h3 className="flex items-center gap-2 text-sm font-semibold tracking-tight text-ink-950">
-                <Hand size={15} strokeWidth={1.5} className="text-ink-400" />
-                Fingertrip Tips
+                <Timer size={15} strokeWidth={1.5} className="text-ink-400" />
+                Trening
               </h3>
-              <div className="mt-3 rounded-2xl border border-ink-900/[0.06] bg-white/40 p-4">
-                <p className="text-sm leading-relaxed text-ink-700">{details.tips}</p>
+              <div className="mt-3 flex flex-col gap-4 rounded-2xl border border-ink-900/[0.06] bg-white/40 p-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <p className="text-sm leading-relaxed text-ink-700">
+                    Osobna sesja z timerem — zapisujemy tylko Twój najlepszy czas.
+                  </p>
+                  <p className="mt-1 truncate text-[11px] font-medium uppercase tracking-[0.12em] text-ink-400">
+                    Wariant: {active.label}
+                  </p>
+                </div>
+                <motion.button
+                  whileTap={{ scale: 0.96 }}
+                  onClick={() => onTrain?.(alg.id, active.moves)}
+                  className="flex shrink-0 items-center justify-center gap-1.5 rounded-full bg-ink-950 px-4 py-2 text-xs font-medium text-alabaster-50 transition-opacity duration-200 hover:opacity-90"
+                >
+                  Trenuj algorytm <ArrowRight size={13} strokeWidth={2} />
+                </motion.button>
               </div>
             </section>
 

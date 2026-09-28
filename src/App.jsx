@@ -3,10 +3,11 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { Box, Loader2 } from 'lucide-react'
 import { useAuth } from './context/AuthContext'
 import { useData } from './context/DataContext'
+import { useProgress } from './context/ProgressContext'
 import { useSessions } from './context/SessionContext'
 import { useSocial } from './context/SocialContext'
 import { loadPrimaryMoves, savePrimaryMoves } from './data/primaryMovesStore'
-import { loadNotes, loadStatuses, saveNotes, saveStatuses } from './data/algorithmProgressStore'
+import { loadNotes, saveNotes } from './data/algorithmProgressStore'
 import { MAX_HISTORY, loadHistory, saveHistory } from './data/localDuelStore'
 import SocialOverlays from './components/social/SocialOverlays'
 import AuthScreen from './components/auth/AuthScreen'
@@ -20,6 +21,7 @@ import ConstellationPage from './pages/ConstellationPage'
 import DuelPage from './pages/DuelPage'
 import SocialHubPage from './pages/SocialHubPage'
 import SyntaxPage from './pages/SyntaxPage'
+import TrainingPage from './pages/TrainingPage'
 import AlgorithmModal from './components/algorithms/AlgorithmModal'
 import { ALGORITHMS } from './data/algorithms'
 import { splitOrientation } from './lib/notation'
@@ -30,14 +32,17 @@ import { splitOrientation } from './lib/notation'
  * Podniesione tu, bo są współdzielone między zakładkami:
  *  - activeTab      — routing bez przeładowania,
  *  - solves         — historia ułożeń (Timer → Stats → Milestones),
- *  - statuses       — status nauki algorytmu (Library + Mapa),
  *  - primaryMoves   — nadpisania "Ustaw jako główny" (bez mutacji bazy),
  *  - notes          — notatki użytkownika per algorytm,
  *  - duels          — historia pojedynków Local Duel,
- *  - selectedId     — który algorytm pokazać w CENTRALNYM modalu.
+ *  - selectedId     — który algorytm pokazać w CENTRALNYM modalu,
+ *  - training       — trwający trening { algId, moves } (albo null).
  *
- * statuses, primaryMoves, notes i duels są trwałe: wczytujemy je z localStorage
+ * primaryMoves, notes i duels są trwałe: wczytujemy je z localStorage
  * przy montowaniu i zapisujemy przy każdej zmianie (moduły w src/data/*Store.js).
+ *
+ * Statusy nauki i rekordy z treningu przychodzą z ProgressContext — jak czasy
+ * z DataContext: w chmurze dla zalogowanego, w localStorage dla Gościa.
  *
  * Modal renderujemy raz, na poziomie App — dlatego otwiera się identycznie
  * z Biblioteki i z Mapy (Constellation).
@@ -50,6 +55,8 @@ export default function App() {
   const { legacySolves, addSolve: addSolveRaw, wipeSignal } = useData()
   // Sesje: nowy czas od razu zapisujemy z sessionId aktywnej sesji.
   const { activeSessionId } = useSessions()
+  // Statusy nauki (Library + Mapa) i rekordy z treningu — per algorytm I wariant.
+  const { statuses, pbs, setStatus, recordPb } = useProgress()
   // Sygnał nawigacji z systemu wyzwań: gdy pojawi się pendingDuel (obaj gracze
   // zaakceptowali), przenosimy widok do Areny — samo dołączenie do pokoju robi
   // OnlineArenaPage, konsumując pendingDuel.
@@ -60,14 +67,15 @@ export default function App() {
   // Stan trwały — wczytany z localStorage, więc przeżywa odświeżenie strony
   // (lazy-init: przekazujemy funkcję, żeby czytać storage raz, przy montowaniu).
   const [duels, setDuels] = useState(loadHistory) // historia pojedynków Local Duel
-  const [statuses, setStatuses] = useState(loadStatuses)
   const [primaryMoves, setPrimaryMoves] = useState(loadPrimaryMoves) // „Ustaw jako główny"
   const [notes, setNotes] = useState(loadNotes)
   const [selectedId, setSelectedId] = useState(null)
+  // Trening algorytmu: gdy ustawiony, zakładka Timera pokazuje TrainingPage
+  // zamiast Dashboardu. Nie jest trwały — odświeżenie wraca do zwykłego Timera.
+  const [training, setTraining] = useState(null) // { algId, moves } | null
 
   // Trwałość: przy każdej zmianie zapisujemy całą mapę/listę do localStorage.
   useEffect(() => void saveHistory(duels), [duels])
-  useEffect(() => void saveStatuses(statuses), [statuses])
   useEffect(() => void savePrimaryMoves(primaryMoves), [primaryMoves])
   useEffect(() => void saveNotes(notes), [notes])
 
@@ -89,9 +97,11 @@ export default function App() {
 
   // Nawigacja: klik w zakładkę „Duel" z paska zawsze zaczyna od ekranu wyboru
   // trybu (reset duelMode). Wejście z wyzwania idzie inną ścieżką (efekt wyżej),
-  // więc nie koliduje.
+  // więc nie koliduje. Każdy klik w pasek kończy też trening — także klik
+  // w „Timer", który wraca wtedy do zwykłego Dashboardu.
   const changeTab = useCallback((id) => {
     if (id === 'duel') setDuelMode(null)
+    setTraining(null)
     setActiveTab(id)
   }, [])
 
@@ -102,7 +112,6 @@ export default function App() {
     [addSolveRaw, activeSessionId],
   )
   const addDuel = useCallback((d) => setDuels((prev) => [d, ...prev].slice(0, MAX_HISTORY)), [])
-  const setStatus = useCallback((id, s) => setStatuses((p) => ({ ...p, [id]: s })), [])
   // "Ustaw jako główny": odcinamy wiodącą rotację orientacyjną (np. "y"),
   // żeby do nauki trafiła czysta sekwencja ruchów, a nie "y R U R' U'".
   const setPrimary = useCallback(
@@ -112,6 +121,22 @@ export default function App() {
   const setNote = useCallback((id, text) => setNotes((p) => ({ ...p, [id]: text })), [])
   const openAlg = useCallback((id) => setSelectedId(id), [])
   const closeAlg = useCallback(() => setSelectedId(null), [])
+
+  // „Trenuj algorytm" z modalu: zamykamy modal i przechodzimy do Timera
+  // w trybie treningu wybranego wariantu.
+  const startTraining = useCallback((algId, moves) => {
+    setSelectedId(null)
+    setTraining({ algId, moves })
+    setActiveTab('dashboard')
+  }, [])
+  const changeTrainingVariant = useCallback(
+    (moves) => setTraining((t) => (t ? { ...t, moves } : t)),
+    [],
+  )
+  const exitTraining = useCallback(() => setTraining(null), [])
+
+  const trainingAlg = training ? ALGORITHMS.find((a) => a.id === training.algId) : null
+  const viewKey = activeTab === 'dashboard' && trainingAlg ? 'training' : activeTab
 
   // Efektywne moves = nadpisanie lub oryginał.
   const movesFor = useCallback((a) => primaryMoves[a.id] ?? a.moves, [primaryMoves])
@@ -168,17 +193,28 @@ export default function App() {
       <ProfileMenu />
 
       <main className="relative md:pl-[100px] md:pr-2">
-        {/* key={activeTab} → crash na jednej zakładce nie przykleja się po zmianie */}
-        <ErrorBoundary key={activeTab}>
+        {/* key={viewKey} → crash na jednej zakładce nie przykleja się po zmianie;
+            trening ma własny klucz, więc wejście/wyjście z niego też ma animację */}
+        <ErrorBoundary key={viewKey}>
           <AnimatePresence mode="wait">
             <motion.div
-              key={activeTab}
+              key={viewKey}
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.25, ease: 'easeOut' }}
             >
-              {activeTab === 'dashboard' && (
+              {activeTab === 'dashboard' && trainingAlg && (
+                <TrainingPage
+                  alg={trainingAlg}
+                  moves={training.moves}
+                  pbs={pbs[trainingAlg.id] ?? {}}
+                  onRecord={recordPb}
+                  onVariantChange={changeTrainingVariant}
+                  onExit={exitTraining}
+                />
+              )}
+              {activeTab === 'dashboard' && !trainingAlg && (
                 <DashboardPage solves={legacySolves} onSolve={addSolve} />
               )}
               {activeTab === 'algorithms' && (
@@ -221,6 +257,8 @@ export default function App() {
             onSetPrimary={setPrimary}
             notes={notes[selected.id] ?? ''}
             onNotesChange={setNote}
+            pbs={pbs[selected.id] ?? {}}
+            onTrain={startTraining}
           />
         )}
       </AnimatePresence>

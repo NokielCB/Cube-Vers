@@ -53,16 +53,32 @@ const PHASE_COLOR = {
 }
 
 /**
- * @param {{ solves: {ms:number, ts:number}[], onSolve: (ms:number)=>void }} props
+ * @param {{
+ *   solves: {ms:number, ts:number}[],
+ *   onSolve: (ms:number, scramble:string)=>void,
+ *   setup?: string,
+ *   pb?: number|null,
+ *   label?: string,
+ * }} props
  *   solves/onSolve są PODNIESIONE do App — dzięki temu historia ułożeń
  *   przeżywa odmontowanie kafla przy przełączaniu zakładek.
+ *
+ *   TRYB TRENINGU ALGORYTMU (gdy podany `setup`):
+ *   - zamiast losowego scramble'a pokazujemy stały setup i NIE losujemy
+ *     nowego po zatrzymaniu — każda próba to ten sam przypadek,
+ *   - wybór konkurencji znika (trening zawsze na 3×3),
+ *   - `pb` podmienia rekord, z którym porównujemy wynik (wibracja „nowy PB").
  */
-export default function TimerCard({ solves = [], onSolve }) {
+export default function TimerCard({ solves = [], onSolve, setup, pb, label = 'Timer' }) {
+  const isTraining = setup != null
+
   // ——— stan RZADKI (bezpiecznie w Reactcie) ———
   const [phase, setPhase] = useState('idle') // idle | holding | ready | running | stopped
   const [eventId, setEventId] = useState(loadEvent)
-  const [scramble, setScramble] = useState(() => generateScrambleFor(loadEvent()))
+  const [scramble, setScramble] = useState(() => setup ?? generateScrambleFor(loadEvent()))
   const ev = getEvent(eventId)
+  // Rozmiar siatki podglądu: trening = zawsze 3×3; pyraminx/skewb — brak podglądu.
+  const previewSize = isTraining ? 3 : ev.preview ? ev.size : null
 
   // ——— referencje: całe timing bez udziału renderowania ———
   const displayRef = useRef(null) // węzeł z cyframi, piszemy do niego wprost
@@ -77,11 +93,23 @@ export default function TimerCard({ solves = [], onSolve }) {
   const eventRef = useRef(eventId)
   const onSolveRef = useRef(onSolve)
   const solvesRef = useRef(solves) // do wykrycia nowego PB (wibracja)
+  const pbRef = useRef(pb)
+  const setupRef = useRef(setup)
   useEffect(() => void (phaseRef.current = phase), [phase])
   useEffect(() => void (scrambleRef.current = scramble), [scramble])
   useEffect(() => void (eventRef.current = eventId), [eventId])
   useEffect(() => void (onSolveRef.current = onSolve), [onSolve])
   useEffect(() => void (solvesRef.current = solves), [solves])
+  useEffect(() => void (pbRef.current = pb), [pb])
+
+  // Trening: zmiana wariantu algorytmu = nowy setup na ekranie.
+  useEffect(() => {
+    setupRef.current = setup
+    if (setup != null) {
+      scrambleRef.current = setup
+      setScramble(setup)
+    }
+  }, [setup])
 
   // Zmiana konkurencji: zapamiętaj wybór i wylosuj nowy scramble właściwy dla niej.
   const changeEvent = useCallback((id) => {
@@ -124,15 +152,18 @@ export default function TimerCard({ solves = [], onSolve }) {
     const elapsed = performance.now() - startRef.current
     writeDisplay(elapsed) // dociągnij dokładny wynik końcowy
     // Nowy PB? porównujemy PRZED dopisaniem wyniku (mocniejsza wibracja).
-    const prevPb = pbSingle(solvesRef.current)
+    // `pb` z propsów (trening) ma pierwszeństwo — undefined = licz z historii.
+    const prevPb = pbRef.current !== undefined ? pbRef.current : pbSingle(solvesRef.current)
     onSolveRef.current?.(elapsed, scrambleRef.current) // zapis + scramble do historii
     if (prevPb == null || elapsed < prevPb) haptics.pb()
     else haptics.stop()
     setPhaseBoth('stopped')
-    // nowy scramble właściwy dla bieżącej konkurencji
-    const next = generateScrambleFor(eventRef.current)
-    scrambleRef.current = next
-    setScramble(next)
+    // Trening: setup zostaje ten sam. Zwykły timer: nowy scramble dla konkurencji.
+    if (setupRef.current == null) {
+      const next = generateScrambleFor(eventRef.current)
+      scrambleRef.current = next
+      setScramble(next)
+    }
   }, [setPhaseBoth])
 
   // ——— Klawiatura: rejestrujemy RAZ, sprzątamy w cleanupie ———
@@ -272,17 +303,19 @@ export default function TimerCard({ solves = [], onSolve }) {
       <div className="flex w-full items-center justify-between text-ink-400">
         <div className="flex items-center gap-2">
           <TimerIcon size={16} strokeWidth={1.5} />
-          <span className="text-[11px] font-medium uppercase tracking-[0.14em]">Timer</span>
+          <span className="text-[11px] font-medium uppercase tracking-[0.14em]">{label}</span>
         </div>
-        {/* wybór konkurencji — zablokowany w trakcie liczenia */}
-        <EventPicker
-          eventId={eventId}
-          onChange={changeEvent}
-          disabled={phase === 'running' || phase === 'holding' || phase === 'ready'}
-        />
+        {/* wybór konkurencji — zablokowany w trakcie liczenia; w treningu zbędny */}
+        {!isTraining && (
+          <EventPicker
+            eventId={eventId}
+            onChange={changeEvent}
+            disabled={phase === 'running' || phase === 'holding' || phase === 'ready'}
+          />
+        )}
       </div>
 
-      {/* scramble — drobny, szary, mono */}
+      {/* scramble (albo setup w treningu) — drobny, szary, mono */}
       <AnimatePresence mode="wait">
         <motion.p
           key={scramble}
@@ -292,15 +325,21 @@ export default function TimerCard({ solves = [], onSolve }) {
           transition={{ duration: 0.25 }}
           className="mt-8 flex items-center gap-2 text-center font-mono text-sm tracking-wide text-ink-400"
         >
-          <Shuffle size={13} strokeWidth={1.5} className="shrink-0" />
+          {isTraining ? (
+            <span className="shrink-0 rounded-full border border-ink-900/[0.08] px-2 py-0.5 font-sans text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-500">
+              Setup
+            </span>
+          ) : (
+            <Shuffle size={13} strokeWidth={1.5} className="shrink-0" />
+          )}
           {scramble}
         </motion.p>
       </AnimatePresence>
 
-      {/* podgląd 2D (net) — tylko dla konkurencji sześciennych, chowa się w trakcie liczenia */}
-      {ev.preview && phase !== 'running' && (
+      {/* podgląd 2D (net) — tylko dla kostek sześciennych, chowa się w trakcie liczenia */}
+      {previewSize && phase !== 'running' && (
         <div className="mt-4 flex justify-center">
-          <ScramblePreview scramble={scramble} size={ev.size} className="h-[78px] w-auto opacity-90" />
+          <ScramblePreview scramble={scramble} size={previewSize} className="h-[78px] w-auto opacity-90" />
         </div>
       )}
 

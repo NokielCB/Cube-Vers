@@ -41,6 +41,33 @@ export function splitOrientation(sequence = '') {
 }
 
 /**
+ * Odwrotność sekwencji — „cofnięcie" algorytmu. Czytamy ruchy OD KOŃCA
+ * i każdemu odwracamy kierunek: R → R', R' → R, a R2 zostaje R2 (pół obrotu
+ * w obie strony to to samo). Działa też dla wide (Rw, r), slice (M) i rotacji.
+ *
+ * Po co: to jest SETUP do treningu. Wykonaj odwrotność na ułożonej kostce,
+ * a sam algorytm doprowadzi ją z powrotem do stanu ułożonego.
+ *
+ *   "R U R' U'"   → "U R U' R'"
+ *   "R U2' R'"    → "R U2 R'"
+ */
+export function invertSequence(sequence = '') {
+  return String(sequence)
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .reverse()
+    .map(invertToken)
+    .join(' ')
+}
+
+function invertToken(token) {
+  const base = token.replace(/['2]+$/, '') // "U2'" → "U", "Rw'" → "Rw"
+  if (token.includes('2')) return `${base}2`
+  return token.endsWith("'") ? base : `${base}'`
+}
+
+/**
  * Twarde czyszczenie: usuwa WSZYSTKIE rotacje z ciągu (także środkowe).
  * Używać świadomie — dobre do etykiet/porównań, nie do wiernego odtwarzania.
  */

@@ -52,6 +52,14 @@ export const api = {
 
   getAnalytics: () => request('/api/analytics/summary'),
 
+  // — Postęp nauki algorytmów: statusy (Biblioteka) + rekordy z treningu —
+  getProgress: () => request('/api/progress'),
+  setAlgStatus: (algId, status) =>
+    request(`/api/progress/statuses/${encodeURIComponent(algId)}`, { method: 'PUT', body: { status } }),
+  // Serwer zapisze czas tylko, jeśli bije rekord; oddaje rekord obowiązujący po zapisie.
+  recordAlgPb: (payload) => request('/api/progress/pbs', { method: 'POST', body: payload }),
+  importProgress: (payload) => request('/api/progress/import', { method: 'POST', body: payload }),
+
   // — System znajomych —
   listFriends: () => request('/api/friends/list'),
   requestFriend: (username) => request('/api/friends/request', { method: 'POST', body: { username } }),

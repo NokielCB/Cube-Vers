@@ -39,6 +39,9 @@ model User {
   authSessions  AuthSession[] // aktywne logowania (po jednym na urządzenie)
   duels         DuelPlayer[] // pojedynki, w których brał udział
 
+  algorithmStatuses AlgorithmStatus[] // postęp nauki z Biblioteki
+  algorithmPbs      AlgorithmPb[] // rekordy z trybu treningu algorytmu
+
   // Relacja znajomości jest kierunkowa (kto wysłał / kto dostał zaproszenie),
   // więc User występuje po OBU stronach — stąd dwie nazwane relacje.
   sentFriendRequests     Friendship[] @relation("SentFriendships")
@@ -127,6 +130,39 @@ model SolveSession {
 
   @@index([userId])
   @@map("solve_sessions")
+}
+
+/// Status nauki algorytmu — jeden rekord na parę (użytkownik, algorytm).
+/// Sama baza algorytmów żyje we froncie (src/data/algorithms.js), więc
+/// `algId` to jej identyfikator (np. "oll-27"), a nie klucz obcy.
+/// Brak rekordu = "new" (do nauki).
+model AlgorithmStatus {
+  userId    String
+  algId     String
+  status    String // "new" | "learning" | "mastered"
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, algId])
+  @@map("algorithm_statuses")
+}
+
+/// Najlepszy czas z trybu treningu — per algorytm I per WARIANT. Wariant
+/// identyfikujemy jego sekwencją ruchów (`moves`), bo „Domyślny" i np.
+/// „Lewa ręka (mirror)" to inne ruchy, których czasów nie wolno mieszać.
+/// Trzymamy tylko rekord — pojedynczych prób treningowych nie zapisujemy.
+model AlgorithmPb {
+  userId    String
+  algId     String
+  moves     String
+  time      Int // ms
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, algId, moves])
+  @@map("algorithm_pbs")
 }
 
 /// Pojedynek sieciowy (Real-Time Duel) — jeden wspólny scramble, dwóch graczy.

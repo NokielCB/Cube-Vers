@@ -3,7 +3,8 @@
  *
  * Metoda geometryczna: każdą naklejkę trzymamy jako punkt 3D (pozycja + normalna),
  * a ruch to obrót warstwy o 90° wokół osi. Dzięki temu jedna funkcja obsługuje
- * 2×2, 3×3 i 4×4 (także ruchy szerokie „w"), bez ręcznych tablic permutacji.
+ * 2×2, 3×3 i 4×4 (także ruchy szerokie „w", slice'y M/E/S i rotacje x/y/z),
+ * bez ręcznych tablic permutacji.
  * Na końcu składamy z powrotem 6 tablic ścian (kolory), gotowych do rysowania.
  *
  * Kolory dobrane pod paletę aplikacji (te same co StudioCube).
@@ -89,11 +90,19 @@ function inLayer(face, p, M, w) {
   }
 }
 
-function applyQuarter(stickers, face, M, w, dir) {
-  const axis = FACE_AXIS[face]
+// Warstwy ŚRODKOWE (slice M/E/S) — wszystko poza dwiema skrajnymi na danej osi.
+const inMiddle = (axis, p, M) => p[axis] > 0 && p[axis] < M
+
+// Slice'y i rotacje kręcą się tak jak ściana, którą naśladują (konwencja WCA):
+// M jak L, E jak D, S jak F; rotacja x jak R, y jak U, z jak F.
+const SLICE_AS = { M: 'L', E: 'D', S: 'F' }
+const ROTATION_AS = { x: 'R', y: 'U', z: 'F' }
+
+// Obrót o 90° wszystkich naklejek, które spełniają `select` (warstwa/warstwy).
+function applyQuarter(stickers, axis, dir, select, M) {
   const c = M / 2
   for (const s of stickers) {
-    if (!inLayer(face, s.pos, M, w)) continue
+    if (!select(s.pos)) continue
     // pozycja: obrót wokół środka kostki
     const rel = { x: s.pos.x - c, y: s.pos.y - c, z: s.pos.z - c }
     const rr = rot(axis, dir, rel)
@@ -103,22 +112,34 @@ function applyQuarter(stickers, face, M, w, dir) {
   }
 }
 
-// Parsowanie i wykonanie jednego tokenu ruchu (np. "R", "Uw'", "F2", "Rw2").
+// Parsowanie i wykonanie jednego tokenu ruchu. Obsługujemy:
+//   ściany "R", "F2", "U'" · wide "Rw", "Uw'" i małe "r", "f" · slice "M2", "E'", "S"
+//   · rotacje całej kostki "x", "y'", "z2". Algorytmy (setup w treningu) używają
+//   ich wszystkich, zwykłe scramble'e — tylko ścian i wide.
 function applyToken(stickers, token, M) {
-  const m = token.match(/^([UDLRFB])(w)?(['2])?$/)
+  const m = token.match(/^([UDLRFBudlrfbMESxyz])(w)?(['2]*)$/)
   if (!m) return
-  const face = m[1]
-  const w = m[2] ? 2 : 1
-  const suffix = m[3]
-  const base = FACE_SIGN[face]
-  if (suffix === '2') {
-    applyQuarter(stickers, face, M, w, base)
-    applyQuarter(stickers, face, M, w, base)
-  } else if (suffix === "'") {
-    applyQuarter(stickers, face, M, w, -base)
+  const [, head, wide, suffix] = m
+
+  let face
+  let select
+  if (SLICE_AS[head]) {
+    face = SLICE_AS[head]
+    select = (p) => inMiddle(FACE_AXIS[face], p, M)
+  } else if (ROTATION_AS[head]) {
+    face = ROTATION_AS[head]
+    select = () => true // cała kostka
   } else {
-    applyQuarter(stickers, face, M, w, base)
+    face = head.toUpperCase()
+    const w = wide || head !== face ? 2 : 1 // "Rw" albo małe "r" = dwie warstwy
+    select = (p) => inLayer(face, p, M, w)
   }
+
+  const base = FACE_SIGN[face]
+  // "2" wygrywa z apostrofem ("U2'" to też pół obrotu).
+  const turns = suffix.includes('2') ? 2 : 1
+  const dir = turns === 1 && suffix.includes("'") ? -base : base
+  for (let i = 0; i < turns; i++) applyQuarter(stickers, FACE_AXIS[face], dir, select, M)
 }
 
 /**
