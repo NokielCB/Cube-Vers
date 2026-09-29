@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { LayoutGrid, Regex, Share2, SquareStack, Swords, Users } from 'lucide-react'
+import { LayoutGrid, Regex, SquareStack, Swords, Users } from 'lucide-react'
 
 // Te same zakładki co w Sidebarze — krótkie etykiety pod ikonami,
 // bo na telefonie nie ma tooltipów (brak hovera).
@@ -7,7 +7,6 @@ import { LayoutGrid, Regex, Share2, SquareStack, Swords, Users } from 'lucide-re
 const NAV = [
   { id: 'dashboard', label: 'Timer', Icon: LayoutGrid },
   { id: 'algorithms', label: 'Algs', Icon: SquareStack },
-  { id: 'map', label: 'Mapa', Icon: Share2 },
   { id: 'duel', label: 'Duel', Icon: Swords },
   { id: 'social', label: 'Social', Icon: Users },
   { id: 'syntax', label: 'Syntax', Icon: Regex },

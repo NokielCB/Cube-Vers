@@ -15,7 +15,6 @@ import MobileNav from './components/layout/MobileNav'
 import ErrorBoundary from './components/common/ErrorBoundary'
 import DashboardPage from './pages/DashboardPage'
 import AlgorithmsPage from './pages/AlgorithmsPage'
-import ConstellationPage from './pages/ConstellationPage'
 import DuelPage from './pages/DuelPage'
 import SocialHubPage from './pages/SocialHubPage'
 import SyntaxPage from './pages/SyntaxPage'
@@ -41,8 +40,8 @@ import { ALGORITHMS } from './data/algorithms'
  * ProgressContext. Jak czasy z DataContext: w chmurze dla zalogowanego,
  * w localStorage dla Gościa.
  *
- * Modal renderujemy raz, na poziomie App — dlatego otwiera się identycznie
- * z Biblioteki i z Mapy (Constellation).
+ * Modal renderujemy raz, na poziomie App — tu jest postęp nauki, który
+ * pokazuje, i przełączanie zakładek, którego potrzebuje „Trenuj algorytm".
  */
 export default function App() {
   const { isAuthenticated, isGuest, isLoading } = useAuth()
@@ -51,7 +50,7 @@ export default function App() {
   const { legacySolves, addSolve: addSolveRaw } = useData()
   // Sesje: nowy czas od razu zapisujemy z sessionId aktywnej sesji.
   const { activeSessionId } = useSessions()
-  // Postęp nauki: statusy (Library + Mapa), rekordy z treningu (per algorytm
+  // Postęp nauki: statusy (Library), rekordy z treningu (per algorytm
   // I wariant), notatki i nadpisania „Ustaw jako główny".
   const { statuses, pbs, notes, primaryMoves, setStatus, recordPb, setNote, flushNotes, setPrimary } =
     useProgress()
@@ -208,13 +207,6 @@ export default function App() {
                 <AlgorithmsPage
                   statuses={statuses}
                   onStatusChange={setStatus}
-                  movesFor={movesFor}
-                  onOpenAlg={openAlg}
-                />
-              )}
-              {activeTab === 'map' && (
-                <ConstellationPage
-                  statuses={statuses}
                   movesFor={movesFor}
                   onOpenAlg={openAlg}
                 />

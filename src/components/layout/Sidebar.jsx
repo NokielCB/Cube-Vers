@@ -1,12 +1,11 @@
 import { motion } from 'framer-motion'
-import { Box, LayoutGrid, Regex, Share2, SquareStack, Swords, Users } from 'lucide-react'
+import { Box, LayoutGrid, Regex, SquareStack, Swords, Users } from 'lucide-react'
 
 // Realne zakładki. Trzymamy rail wąski i przestronny — bez martwych ikon.
 // „Duel" łączy dawny Local Duel + Online Duel w jedną sekcję (patrz DuelPage).
 const NAV = [
   { id: 'dashboard', label: 'Dashboard / Timer', Icon: LayoutGrid },
   { id: 'algorithms', label: 'Learn / Algs', Icon: SquareStack },
-  { id: 'map', label: 'Map / Constellation', Icon: Share2 },
   { id: 'duel', label: 'Duel · Local & Online', Icon: Swords },
   { id: 'social', label: 'Social Hub', Icon: Users },
   { id: 'syntax', label: 'Cube Syntax', Icon: Regex },

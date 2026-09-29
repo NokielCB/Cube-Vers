@@ -9,7 +9,7 @@ import FilterBar from '../components/algorithms/FilterBar'
  * AlgorithmsPage — biblioteka algorytmów w układzie bento.
  *
  * Widok STEROWANY: status nauki, nadpisania sekwencji i otwieranie modalu
- * pochodzą z App (props), więc ten sam modal działa też z Mapy. Lokalnie
+ * pochodzą z App (props), bo modal i trening żyją piętro wyżej. Lokalnie
  * trzymamy tylko stan UI biblioteki: filtry i wyszukiwarkę.
  *
  * @param {{
