@@ -1,83 +1,89 @@
 # 🧊 CubeVerse
 
-Aplikacja webowa dla speedcuberów: **timer z historią i statystykami, biblioteka algorytmów (OLL/PLL) z wizualizacją 3D, trening algorytmów oraz pojedynki online na żywo**. Działa w przeglądarce, także na telefonie.
+🇵🇱 [Wersja polska](README.pl.md)
 
-> Projekt edukacyjny / portfolio. Kod jest obficie komentowany po polsku — tłumaczy *dlaczego*, nie tylko *co*.
+A web app for speedcubers: **a timer with history and statistics, an OLL/PLL algorithm library with 3D visualisation, algorithm training, and live online duels**. Runs in the browser, phone included.
 
-## Funkcje
+> Educational / portfolio project. The source is heavily commented (in Polish) and explains *why*, not just *what*.
 
-- **Timer** — generator scrambli, podgląd scrambla na kostce, historia ułożeń, sesje, statystyki (best, ao5, ao12…) i wykresy.
-- **Biblioteka algorytmów** — wszystkie 57 OLL i pełne PLL, diagramy liczone symulatorem kostki, filtry, notatki i wybór „głównego" algorytmu per przypadek.
-- **Trening algorytmów** — rekord osobisty per wariant, postęp nauki (statusy: uczę się / umiem…).
-- **Syntax** — interaktywna ściąga notacji ruchów z animowaną kostką 3D.
-- **Arena** — pojedynki 1 vs 1: lokalnie na jednym urządzeniu albo **online w czasie rzeczywistym** (WebSockety).
-- **Konta i znajomi** — rejestracja, logowanie, lista znajomych, status online, wyzwania na pojedynek.
-- **Tryb Gościa** — pełny timer i biblioteka bez konta (dane w `localStorage`); po rejestracji można zaimportować historię do chmury.
-- **Osiągnięcia** i dashboard z postępami.
+## Features
 
-## Stack
+- **Timer** – scramble generator, scramble preview on a cube, solve history, sessions, statistics (best, ao5, ao12…) and charts.
+- **Algorithm library** – all 57 OLL and the full PLL set, case diagrams computed by a cube simulator, filters, notes, and a "primary algorithm" per case.
+- **Algorithm training** – personal best per variant and learning progress (learning / known…).
+- **Syntax** – an interactive notation cheat sheet with an animated 3D cube.
+- **Arena** – 1v1 duels: locally on one device, or **online in real time** over WebSockets.
+- **Accounts and friends** – sign-up, login, friend list, online presence, duel challenges.
+- **Guest mode** – the full timer and library without an account (data kept in `localStorage`); after signing up you can import your history to the cloud.
+- **Achievements** and a progress dashboard.
 
-| Warstwa | Technologie |
+## Tech stack
+
+| Layer | Technologies |
 |---|---|
 | Frontend | React 18, Vite, Tailwind CSS, Framer Motion, Three.js (`@react-three/fiber`, `drei`), Recharts, TanStack Query |
-| Backend | Node.js, Express, Socket.io, Zod (walidacja), JWT w ciasteczku `httpOnly`, bcryptjs, Helmet |
-| Baza | PostgreSQL + Prisma ORM (migracje w `server/prisma/migrations`) |
+| Backend | Node.js, Express, Socket.io, Zod (validation), JWT in an `httpOnly` cookie, bcryptjs, Helmet |
+| Database | PostgreSQL + Prisma ORM (migrations in `server/prisma/migrations`) |
 
-## Uruchomienie lokalne
+## Running locally
 
-Wymagania: **Node.js 18+** i **Docker** (dla bazy PostgreSQL).
+Requirements: **Node.js 18+** and **Docker** (for PostgreSQL). For guest mode only, the frontend alone is enough.
 
 ```bash
-# 1. Baza danych (PostgreSQL + panel Adminer na :8080)
+# 1. Database (PostgreSQL + Adminer panel on :8080)
 docker compose up -d
 
 # 2. Backend
 cd server
-cp .env.example .env        # potem wpisz własny JWT_SECRET (instrukcja w pliku)
+cp .env.example .env        # then set your own JWT_SECRET (instructions inside the file)
 npm install
 npx prisma migrate deploy
-npm run seed                # opcjonalnie: dane startowe
-npm run dev                 # API + WebSocket na http://localhost:4000
+npm run seed                # optional: seed data
+npm run dev                 # API + WebSocket on http://localhost:4000
 
-# 3. Frontend (drugi terminal, katalog główny repo)
+# 3. Frontend (second terminal, repo root)
 npm install
 npm run dev                 # http://localhost:5173
 ```
 
-Szczegóły bazy: [BAZA-DANYCH-DOCKER.md](BAZA-DANYCH-DOCKER.md).
+Database details (in Polish): [BAZA-DANYCH-DOCKER.md](BAZA-DANYCH-DOCKER.md).
 
-## Struktura repozytorium
+## Repository layout
 
 ```
-src/                 frontend (pages, components, hooks, lib — m.in. symulator kostki)
+src/                 frontend (pages, components, hooks, lib — incl. the cube simulator)
 server/src/
-  routes/ controllers/ services/   REST API (warstwy: trasa → kontroler → serwis)
-  socket/                          pojedynki i obecność znajomych (Socket.io)
-  validators/                      schematy Zod
-  lib/ middleware/                 konfiguracja, CSRF/CORS, limiter logowania
-server/prisma/       schemat bazy i migracje
-render.yaml          konfiguracja wdrożenia (Render)
+  routes/ controllers/ services/   REST API (route → controller → service)
+  socket/                          duels and friend presence (Socket.io)
+  validators/                      Zod schemas
+  lib/ middleware/                 config, CSRF/CORS, login rate limiter
+server/prisma/       database schema and migrations
+render.yaml          full deployment config (Render)
+vercel.json          static frontend deployment config (Vercel)
 ```
 
-## Bezpieczeństwo (w skrócie)
+## Security notes
 
-- Sesja w ciasteczku `httpOnly` + `Secure` na produkcji (token niedostępny dla JavaScriptu).
-- Ochrona CSRF przez sprawdzanie nagłówka `Origin` oraz CORS z listą zaufanych adresów.
-- Limiter prób logowania, limity rozmiaru body, walidacja wejścia (Zod), nagłówki Helmet.
-- Serwer **nie wystartuje** z przykładowym lub za krótkim `JWT_SECRET`.
+- Session lives in an `httpOnly` cookie, `Secure` in production (the token is unreachable from JavaScript).
+- CSRF protection by checking the `Origin` header, plus CORS with an allow-list.
+- Login attempt rate limiter, request body size limits, input validation (Zod), Helmet headers.
+- The server **refuses to start** with a placeholder or too-short `JWT_SECRET`.
 
-## Wdrożenie (darmowe)
+## Deployment (free)
 
-Backend wydaje też zbudowany frontend, więc całość to **jedna usługa** — bez CORS i problemów z ciasteczkami na Safari.
+### Frontend only (e.g. to showcase the project)
+The frontend is a plain static site, so it can be deployed with no backend and no database, e.g. on [Vercel](https://vercel.com) (*Add New → Project* → this repository → *Deploy*; `vercel.json` is ready) or Netlify / Cloudflare Pages (`npm run build`, output `dist`).
 
-1. **Baza:** załóż darmowy projekt na [Neon](https://neon.tech) i skopiuj connection string.
-2. **Render:** *New → Blueprint*, wskaż to repozytorium (plik `render.yaml`). Przy tworzeniu wklej `DATABASE_URL`. Build sam stosuje migracje.
-3. Gotowe — adres `https://<nazwa>.onrender.com`.
+Without a backend, **guest mode** works (timer, algorithm library, training, Syntax, local duel – data in `localStorage`). Login, accounts, friends and online duels need the backend.
 
-Darmowy plan Rendera usypia usługę po ~15 min bez ruchu (pierwsze wejście trwa wtedy 30–60 s).
+### Full version with accounts and online duels
+The backend also serves the built frontend, so everything is **one service**, with no CORS and no cross-site cookie problems on Safari.
 
-Alternatywa z podziałem: frontend na Vercel/Netlify (`vercel.json`), backend na Renderze; wtedy ustaw `VITE_API_URL`, `VITE_SOCKET_URL`, `CLIENT_ORIGIN` i `COOKIE_SAMESITE=none`.
+1. **Database:** a free [Neon](https://neon.tech) project (use the *direct* connection string).
+2. **Render:** *New → Blueprint* → this repository (`render.yaml`), paste `DATABASE_URL`. The build applies migrations itself.
 
-## Licencja
+Render's free plan sleeps the service after ~15 minutes idle (the first hit takes 30–60 s).
 
-Projekt prywatny / portfolio — wszelkie prawa zastrzeżone, o ile autor nie zdecyduje inaczej.
+## License
+
+Private / portfolio project – all rights reserved unless the author decides otherwise.
