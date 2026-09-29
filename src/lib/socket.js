@@ -13,7 +13,8 @@ import { io } from 'socket.io-client'
  *
  * URL backendu z env (Vite): VITE_SOCKET_URL, fallback na lokalny serwer API.
  */
-const URL = import.meta.env.VITE_SOCKET_URL ?? 'http://localhost:4000'
+// undefined = ten sam adres co strona (produkcja z backendem wydającym frontend).
+const URL = import.meta.env.VITE_SOCKET_URL ?? (import.meta.env.PROD ? undefined : 'http://localhost:4000')
 
 export const socket = io(URL, {
   autoConnect: false,

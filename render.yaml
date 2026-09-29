@@ -1,0 +1,26 @@
+# Render Blueprint — JEDNA darmowa usługa: backend (Express + Socket.io) wydaje też
+# zbudowany frontend, więc strona i API mają ten sam adres (bez CORS, działa na Safari).
+# Bazę PostgreSQL trzymamy poza Renderem (Neon) — darmowa baza Rendera wygasa po 30 dniach.
+services:
+  - type: web
+    name: cubeverse
+    runtime: node
+    plan: free
+    healthCheckPath: /health
+    # --include=dev: Render ustawia NODE_ENV=production także w buildzie, a Vite i Prisma CLI
+    # to devDependencies. migrate deploy stosuje migracje na bazie z DATABASE_URL.
+    buildCommand: >-
+      npm ci --include=dev && npm run build &&
+      cd server && npm ci --include=dev && npx prisma generate && npx prisma migrate deploy
+    startCommand: cd server && npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: SERVE_CLIENT
+        value: "true"
+      - key: TRUST_PROXY
+        value: "1"
+      - key: JWT_SECRET
+        generateValue: true # Render losuje długi sekret
+      - key: DATABASE_URL
+        sync: false # wklejasz w panelu: connection string z Neon

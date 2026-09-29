@@ -2,7 +2,10 @@
  * Lista zaufanych adresów frontendu (CLIENT_ORIGIN, po przecinku) — JEDNO
  * źródło dla CORS, ochrony CSRF i handshake'u WebSocketa.
  */
-export const allowedOrigins = (process.env.CLIENT_ORIGIN ?? 'http://localhost:5173')
+// RENDER_EXTERNAL_URL (Render ustawia sam) = publiczny adres tej usługi — dodajemy go
+// automatycznie, żeby tryb „jedna usługa" działał bez ręcznego wpisywania CLIENT_ORIGIN.
+export const allowedOrigins = [process.env.CLIENT_ORIGIN ?? 'http://localhost:5173', process.env.RENDER_EXTERNAL_URL ?? '']
+  .join(',')
   .split(',')
   .map((o) => o.trim())
   .filter(Boolean)

@@ -6,7 +6,8 @@
  * httpOnly cookie do każdego żądania (i przyjmuje Set-Cookie z odpowiedzi).
  * Bez tego sesja oparta o ciasteczko w ogóle by nie działała cross-origin.
  */
-const BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:4000'
+// Produkcja domyślnie: ten sam adres co strona (backend wydaje frontend). Dev: lokalny API.
+const BASE = import.meta.env.VITE_API_URL ?? (import.meta.env.PROD ? '' : 'http://localhost:4000')
 
 async function request(path, { method = 'GET', body } = {}) {
   const res = await fetch(`${BASE}${path}`, {

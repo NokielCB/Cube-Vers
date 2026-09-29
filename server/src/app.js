@@ -2,6 +2,8 @@
  * Konfiguracja aplikacji Express (bez nasłuchiwania portu — to robi server.js).
  * Rozdzielenie app/server ułatwia testy integracyjne (supertest importuje `app`).
  */
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import express from 'express'
 import cors from 'cors'
 import helmet from 'helmet'
@@ -54,5 +56,15 @@ app.use('/api/sessions', sessionRoutes)
 app.use('/api/progress', progressRoutes)
 app.use('/api/friends', friendRoutes)
 app.use('/api/analytics', analyticsRoutes)
+
+// Tryb „jedna usługa": backend sam wydaje zbudowany frontend (dist/). Frontend i API
+// mają wtedy TEN SAM adres, więc nie ma CORS-a ani ciasteczek cross-site (działa też
+// na Safari/iPhone). Włączane zmienną SERVE_CLIENT=true — lokalnie front daje Vite.
+if (process.env.SERVE_CLIENT === 'true') {
+  const distDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../dist')
+  app.use(express.static(distDir))
+  // SPA: każda inna ścieżka GET (poza /api i socket.io) dostaje index.html.
+  app.get(/^\/(?!api\/|socket\.io\/).*/, (_req, res) => res.sendFile(path.join(distDir, 'index.html')))
+}
 
 app.use(errorHandler) // musi być NA KOŃCU
