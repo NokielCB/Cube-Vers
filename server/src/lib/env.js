@@ -6,6 +6,8 @@
  * konto. Wartość z .env.example jest publiczna (leży w repo), więc traktujemy
  * ją jak brak sekretu.
  */
+import { SAME_SITE_VALUES } from './cookie.js'
+
 const PLACEHOLDER_SECRETS = ['zmien-mnie-na-cos-dlugiego-i-losowego']
 const MIN_SECRET_LENGTH = 32
 
@@ -19,12 +21,18 @@ export function assertEnv() {
 
   if (!process.env.DATABASE_URL) problems.push('brak DATABASE_URL')
 
+  // Literówka (np. „None" albo „off") po cichu dałaby domyślne 'lax' — wolimy głośny błąd.
+  const sameSite = process.env.COOKIE_SAMESITE
+  if (sameSite && !SAME_SITE_VALUES.includes(sameSite)) {
+    problems.push(`COOKIE_SAMESITE="${sameSite}" — dozwolone: ${SAME_SITE_VALUES.join(', ')}`)
+  }
+
   if (problems.length) {
-    console.error(
-      `❌ Niepoprawna konfiguracja serwera (server/.env):\n  - ${problems.join('\n  - ')}\n` +
-        'Nowy sekret wygenerujesz komendą:\n' +
-        '  node -e "console.log(require(\'crypto\').randomBytes(48).toString(\'base64url\'))"',
-    )
+    const secretHint = problems.some((p) => p.includes('JWT_SECRET'))
+      ? '\nNowy sekret wygenerujesz komendą:\n' +
+        '  node -e "console.log(require(\'crypto\').randomBytes(48).toString(\'base64url\'))"'
+      : ''
+    console.error(`❌ Niepoprawna konfiguracja serwera (server/.env):\n  - ${problems.join('\n  - ')}${secretHint}`)
     process.exit(1)
   }
 

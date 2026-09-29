@@ -12,8 +12,34 @@
 // działają z istniejącym logowaniem JWT.
 // ---------------------------------------------------------------------------
 
+import 'dotenv/config'
 import { PrismaClient } from '@prisma/client'
 import bcrypt from 'bcryptjs'
+
+// ── Bezpiecznik ──────────────────────────────────────────────────────────────
+// Seed KASUJE WSZYSTKO. Jedno `npm run seed` z DATABASE_URL wskazującym na
+// produkcję (np. skopiowanym do .env na chwilę) = utrata kont i historii
+// wszystkich graczy. Dlatego domyślnie działa tylko na bazie lokalnej.
+// Świadomie na innej bazie (np. testowej w chmurze): SEED_ALLOW_REMOTE=1.
+const LOCAL_DB_HOSTS = ['localhost', '127.0.0.1', '[::1]', 'db'] // db = nazwa usługi w docker-compose
+
+function assertSafeToWipe() {
+  let host = null
+  try {
+    host = new URL(process.env.DATABASE_URL).hostname
+  } catch {
+    // brak/niepoprawny URL — niżej potraktujemy to jak bazę zdalną
+  }
+  const refuse = (reason) => {
+    console.error(`⛔  Seed przerwany: ${reason}. Baza NIE została ruszona.`)
+    process.exit(1)
+  }
+  if (process.env.NODE_ENV === 'production') refuse('NODE_ENV=production')
+  if (!LOCAL_DB_HOSTS.includes(host) && process.env.SEED_ALLOW_REMOTE !== '1') {
+    refuse(`DATABASE_URL wskazuje na „${host ?? '?'}", a nie na bazę lokalną (wymuszenie: SEED_ALLOW_REMOTE=1)`)
+  }
+}
+assertSafeToWipe()
 
 const prisma = new PrismaClient()
 
@@ -40,13 +66,16 @@ async function main() {
   // integralności, nawet gdyby kaskady były wyłączone.
   //   Friendship  -> senderId / receiverId -> User
   //   DuelPlayer  -> userId / duelId       -> User / Duel
-  //   Solve       -> userId / duelId       -> User / Duel
+  //   Solve       -> userId / duelId / sessionId -> User / Duel / SolveSession
   //   Duel        -> (nadrzędna dla Solve/DuelPlayer)
+  //   SolveSession, AuthSession -> userId -> User
   //   User        -> na końcu
   await prisma.friendship.deleteMany()
   await prisma.duelPlayer.deleteMany()
   await prisma.solve.deleteMany()
   await prisma.duel.deleteMany()
+  await prisma.solveSession.deleteMany()
+  await prisma.authSession.deleteMany()
   await prisma.user.deleteMany()
 
   console.log('✅  Baza wyczyszczona.\n')

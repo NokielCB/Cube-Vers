@@ -119,37 +119,45 @@ export async function revokeOtherSessions(userId, keepSessionId) {
   return others.map((s) => s.id)
 }
 
+function conflict(field) {
+  const err = new Error(field === 'username' ? 'Ten nick jest już zajęty.' : 'Ten adres e-mail jest już zajęty.')
+  err.status = 409
+  return err
+}
+
 /**
  * Rejestracja: haszuje hasło (bcrypt sam generuje i wkleja salt do hasha)
- * i zapisuje usera. Rzuca, gdy e-mail zajęty.
+ * i zapisuje usera. Rzuca 409, gdy e-mail albo nick zajęty.
  */
 export async function registerUser({ email, password, displayName, username }) {
   const existing = await prisma.user.findUnique({ where: { email } })
-  if (existing) {
-    const err = new Error('Ten adres e-mail jest już zajęty.')
-    err.status = 409
-    throw err
-  }
+  if (existing) throw conflict('email')
 
   // Nick jest WYMAGANY (walidator to gwarantuje). Normalizujemy do małych liter,
   // żeby uniknąć par typu "Alice" / "alice" i by wyszukiwanie było jednoznaczne.
   const finalUsername = String(username).trim().toLowerCase()
   const taken = await prisma.user.findUnique({ where: { username: finalUsername } })
-  if (taken) {
-    const err = new Error('Ten nick jest już zajęty.')
-    err.status = 409
-    throw err
-  }
+  if (taken) throw conflict('username')
 
   // Nazwa gracza (może się powtarzać). Jeśli pominięta przy rejestracji,
   // startowo pokazujemy nick — użytkownik zmieni ją później w Ustawieniach.
   const finalDisplayName = displayName?.trim() || finalUsername
 
   const passwordHash = await bcrypt.hash(password, SALT_ROUNDS)
-  const user = await prisma.user.create({
-    data: { email, passwordHash, displayName: finalDisplayName, username: finalUsername },
-  })
-  return toPublicUser(user)
+  try {
+    const user = await prisma.user.create({
+      data: { email, passwordHash, displayName: finalDisplayName, username: finalUsername },
+    })
+    return toPublicUser(user)
+  } catch (err) {
+    // Wyścig: dwie rejestracje naraz przeszły oba sprawdzenia wyżej (bcrypt
+    // trwa ~250 ms, więc okno jest spore), druga odbija się od @unique w bazie.
+    // Prisma zgłasza to kodem P2002 z nazwą pola — oddajemy ten sam 409, nie 500.
+    if (err?.code === 'P2002') {
+      throw conflict(err.meta?.target?.includes('username') ? 'username' : 'email')
+    }
+    throw err
+  }
 }
 
 /**

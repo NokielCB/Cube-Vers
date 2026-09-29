@@ -53,6 +53,9 @@ go bezpiecznie powtarzać.
 npm run seed
 ```
 Tworzy 5 kont testowych, hasło dla wszystkich: `Test1234!`.
+**Uwaga: seed najpierw KASUJE całą bazę.** Dlatego odmawia działania przy
+`NODE_ENV=production` albo gdy `DATABASE_URL` nie wskazuje na bazę lokalną
+(`localhost`, `127.0.0.1`, `db`). Świadomie na innej bazie: `SEED_ALLOW_REMOTE=1`.
 
 ### 4. Uruchom backend
 W `server/`:
@@ -155,3 +158,12 @@ Ta baza jest **lokalna** (na Twoim komputerze). InfinityFree jej nie obsłuży
 (brak Node.js i Postgresa). Gdy zechcesz wystawić pełną aplikację online z tą bazą,
 potrzebny jest hosting z Node.js + PostgreSQL — np. Render, Railway, Fly.io albo VPS.
 Wtedy zmienia się tylko `DATABASE_URL` na adres bazy w chmurze; reszta zostaje.
+
+Przy wdrożeniu ustaw w `server/.env` hostingu (opisy w `server/.env.example`):
+- `NODE_ENV=production`, własny `JWT_SECRET`, `CLIENT_ORIGIN` = dokładny adres frontendu
+  (tylko z tego adresu serwer przyjmie zapis i połączenie WebSocket),
+- `TRUST_PROXY=1` — hostingi stawiają przed aplikacją proxy,
+- **domeny:** najprościej frontend i API pod jedną domeną (`cubeverse.pl` +
+  `api.cubeverse.pl`) — ciasteczko logowania działa bez zmian. Frontend i API na
+  różnych domenach hostingów (np. `*.vercel.app` + `*.onrender.com`) wymagają
+  `COOKIE_SAMESITE=none`, a Safari i tak może blokować takie ciasteczko.

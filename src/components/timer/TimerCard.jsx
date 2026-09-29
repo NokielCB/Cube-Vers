@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Timer as TimerIcon, Shuffle, ChevronDown } from 'lucide-react'
 import { generateScrambleFor } from '../../lib/scramble'
@@ -43,6 +44,11 @@ function loadEvent() {
   }
 }
 
+// Spacja w polu tekstowym (np. nazwa sesji) to zwykły znak, nie start timera.
+const isTyping = (el) =>
+  el instanceof HTMLElement &&
+  (el.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName))
+
 // Kolor wielkich cyfr zależnie od fazy — funkcjonalny feedback dla oka.
 const PHASE_COLOR = {
   idle: 'text-ink-950',
@@ -68,8 +74,23 @@ const PHASE_COLOR = {
  *     nowego po zatrzymaniu — każda próba to ten sam przypadek,
  *   - wybór konkurencji znika (trening zawsze na 3×3),
  *   - `pb` podmienia rekord, z którym porównujemy wynik (wibracja „nowy PB").
+ *
+ *   TRYB SKUPIENIA (`focusMode`, włączony na Dashboardzie):
+ *   - w trakcie liczenia cały ekran zasłania warstwa z samymi cyframi —
+ *     znikają nawigacja, statystyki, scramble i powiadomienia,
+ *   - warstwa jest portalem do <body>, żeby przykryć też elementy `fixed`
+ *     (Sidebar, dolny pasek, toasty) niezależnie od tego, gdzie leży kafel,
+ *   - zdarzenia z portalu bąbelkują po drzewie REACTA (nie DOM), więc dotyk
+ *     na warstwie trafia do onTouchStart kafla i zatrzymuje timer jak dotąd.
  */
-export default function TimerCard({ solves = [], onSolve, setup, pb, label = 'Timer' }) {
+export default function TimerCard({
+  solves = [],
+  onSolve,
+  setup,
+  pb,
+  label = 'Timer',
+  focusMode = false,
+}) {
   const isTraining = setup != null
 
   // ——— stan RZADKI (bezpiecznie w Reactcie) ———
@@ -82,6 +103,7 @@ export default function TimerCard({ solves = [], onSolve, setup, pb, label = 'Ti
 
   // ——— referencje: całe timing bez udziału renderowania ———
   const displayRef = useRef(null) // węzeł z cyframi, piszemy do niego wprost
+  const focusDisplayRef = useRef(null) // cyfry trybu skupienia — ten sam czas, drugi węzeł
   const startRef = useRef(0) // performance.now() startu
   const rafRef = useRef(0) // id requestAnimationFrame
   const holdTimeoutRef = useRef(0) // timeout progu "ready"
@@ -130,8 +152,12 @@ export default function TimerCard({ solves = [], onSolve, setup, pb, label = 'Ti
     setPhase(p)
   }, [])
 
+  // Piszemy do obu węzłów: warstwa skupienia istnieje tylko w trakcie liczenia
+  // (poza nim jej ref to null), a kafel pod spodem ma od razu gotowy wynik.
   const writeDisplay = (ms) => {
-    if (displayRef.current) displayRef.current.textContent = formatTime(ms)
+    const text = formatTime(ms)
+    if (displayRef.current) displayRef.current.textContent = text
+    if (focusDisplayRef.current) focusDisplayRef.current.textContent = text
   }
 
   // Pętla rAF — jedyne miejsce, gdzie "tyka" czas. Zero setState.
@@ -175,8 +201,8 @@ export default function TimerCard({ solves = [], onSolve, setup, pb, label = 'Ti
         stop()
         return
       }
-      // Poza liczeniem interesuje nas tylko spacja.
-      if (e.code !== 'Space') return
+      // Poza liczeniem interesuje nas tylko spacja — i to nie w polu tekstowym.
+      if (e.code !== 'Space' || isTyping(e.target)) return
       e.preventDefault()
       if (e.repeat) return // ignoruj auto-powtórzenia przy przytrzymaniu
 
@@ -190,7 +216,7 @@ export default function TimerCard({ solves = [], onSolve, setup, pb, label = 'Ti
     }
 
     const onKeyUp = (e) => {
-      if (e.code !== 'Space') return
+      if (e.code !== 'Space' || isTyping(e.target)) return
       e.preventDefault()
       clearTimeout(holdTimeoutRef.current)
 
@@ -402,6 +428,37 @@ export default function TimerCard({ solves = [], onSolve, setup, pb, label = 'Ti
           ))}
         </AnimatePresence>
       </div>
+
+      {/* tryb skupienia: w trakcie liczenia tylko cyfry na czystym tle.
+          z-[80] — ponad toastami i zaproszeniami do pojedynku (z-[65]/[70]),
+          więc dotyk zatrzymujący timer nie trafi przypadkiem w ich tło.
+          preventDefault na touchend blokuje „kliknięcie-widmo", które telefon
+          wysyła po dotyku — trafiłoby w przycisk odsłaniany pod warstwą. */}
+      {focusMode &&
+        createPortal(
+          <AnimatePresence>
+            {phase === 'running' && (
+              <motion.div
+                key="focus"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2, ease: 'easeOut' }}
+                onTouchEnd={(e) => e.preventDefault()}
+                role="timer"
+                className="bg-organic fixed inset-0 z-[80] flex touch-none select-none items-center justify-center"
+              >
+                <span
+                  ref={focusDisplayRef}
+                  className="font-mono text-[clamp(4.5rem,19vw,14rem)] font-medium tabular-nums leading-none tracking-tight text-ink-950"
+                >
+                  0.00
+                </span>
+              </motion.div>
+            )}
+          </AnimatePresence>,
+          document.body,
+        )}
     </motion.section>
   )
 }

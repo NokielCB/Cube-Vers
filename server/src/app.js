@@ -15,6 +15,7 @@ import sessionRoutes from './routes/session.routes.js'
 import progressRoutes from './routes/progress.routes.js'
 import { errorHandler } from './middleware/errorHandler.js'
 import { protectRoute } from './middleware/auth.js'
+import { allowedOrigins, rejectForeignOrigin } from './lib/origins.js'
 
 export const app = express()
 
@@ -30,12 +31,8 @@ app.use(helmet()) // bezpieczne nagłówki HTTP
 
 // CORS z ciasteczkami: przy httpOnly cookie MUSI być credentials:true, a
 // origin nie może być '*' — trzeba podać konkretny adres frontendu.
-app.use(
-  cors({
-    origin: process.env.CLIENT_ORIGIN?.split(',') ?? 'http://localhost:5173',
-    credentials: true,
-  }),
-)
+app.use(cors({ origin: allowedOrigins, credentials: true }))
+app.use(rejectForeignOrigin) // CSRF: zapis z obcej strony → 403 (szczegóły w lib/origins.js)
 
 app.use(cookieParser()) // parsuje req.cookies (potrzebne protectRoute)
 

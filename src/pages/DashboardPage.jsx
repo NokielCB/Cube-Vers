@@ -44,7 +44,8 @@ export default function DashboardPage({ solves, onSolve }) {
 
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2">
-          <TimerCard solves={sessionSolves} onSolve={onSolve} />
+          {/* focusMode: w trakcie liczenia zostają same cyfry (patrz TimerCard) */}
+          <TimerCard solves={sessionSolves} onSolve={onSolve} focusMode />
         </div>
         <div className="lg:col-span-1">
           <StatsCard solves={sessionSolves} sessionName={sessionName} />

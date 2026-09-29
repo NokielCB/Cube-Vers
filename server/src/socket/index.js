@@ -17,6 +17,7 @@ import { registerDuelHandlers } from './duelHandlers.js'
 import { registerFriendHandlers } from './friendHandlers.js'
 import { COOKIE_NAME } from '../lib/cookie.js'
 import { getUserById, verifySessionToken } from '../services/auth.service.js'
+import { allowedOrigins, isAllowedOrigin } from '../lib/origins.js'
 
 let io = null
 
@@ -25,9 +26,16 @@ export function initSocket(httpServer) {
 
   io = new Server(httpServer, {
     cors: {
-      origin: process.env.CLIENT_ORIGIN?.split(',') ?? 'http://localhost:5173',
+      origin: allowedOrigins,
       methods: ['GET', 'POST'],
       credentials: true, // pozwól przeglądarce dosłać httpOnly cookie
+    },
+    // CORS NIE obejmuje WebSocketa — obca strona mogłaby otworzyć połączenie
+    // z ciasteczkiem ofiary i działać w jej imieniu (zaproszenia, pojedynki).
+    // Dlatego sami sprawdzamy Origin handshake'u; brak nagłówka = nie przeglądarka.
+    allowRequest: (req, callback) => {
+      const origin = req.headers.origin
+      callback(null, !origin || isAllowedOrigin(origin))
     },
   })
 

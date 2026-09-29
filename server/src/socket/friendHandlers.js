@@ -20,6 +20,7 @@ import {
   userRoom,
 } from './presence.js'
 import { areFriends, getFriendIds } from '../services/friend.service.js'
+import { guard, ackOf } from './safe.js'
 
 /** Krótki, czytelny kod pokoju (A–Z, 2–9; bez mylących 0/O/1/I). */
 function genRoomCode(len = 6) {
@@ -50,35 +51,38 @@ export function registerFriendHandlers(io, socket) {
 
   // ── send_duel_challenge ─────────────────────────────────────────────────────
   // Gracz A wyzywa znajomego. Walidujemy: cel to znajomy (ACCEPTED) i jest online.
-  socket.on('send_duel_challenge', async ({ targetUserId } = {}, ack) => {
+  socket.on('send_duel_challenge', guard('send_duel_challenge', async (payload, ack) => {
+    const reply = ackOf(ack)
+    const { targetUserId } = payload ?? {}
     try {
-      if (!targetUserId || targetUserId === userId) {
-        return ack?.({ ok: false, error: 'Nieprawidłowy cel wyzwania.' })
+      if (typeof targetUserId !== 'string' || !targetUserId || targetUserId === userId) {
+        return reply({ ok: false, error: 'Nieprawidłowy cel wyzwania.' })
       }
       if (!(await areFriends(userId, targetUserId))) {
-        return ack?.({ ok: false, error: 'To nie jest Twój znajomy.' })
+        return reply({ ok: false, error: 'To nie jest Twój znajomy.' })
       }
       if (!isOnline(targetUserId)) {
-        return ack?.({ ok: false, error: 'Ten gracz jest teraz offline.' })
+        return reply({ ok: false, error: 'Ten gracz jest teraz offline.' })
       }
       emitToUser(targetUserId, 'duel_invitation', {
         fromUserId: userId,
         fromUsername: socket.data.username ?? null,
         fromName: socket.data.name ?? 'Gracz',
       })
-      ack?.({ ok: true })
+      reply({ ok: true })
     } catch (err) {
       console.error('[DUEL] send_duel_challenge:', err)
-      ack?.({ ok: false, error: 'Nie udało się wysłać wyzwania.' })
+      reply({ ok: false, error: 'Nie udało się wysłać wyzwania.' })
     }
-  })
+  }))
 
   // ── respond_duel_challenge ──────────────────────────────────────────────────
   // Gracz B odpowiada. Accept → serwer tworzy pokój i wypycha OBU graczom
   // `duel_start` (inicjator z autoStart=true, by po wejściu obu odpalić mecz).
-  socket.on('respond_duel_challenge', async ({ fromUserId, accept } = {}) => {
+  socket.on('respond_duel_challenge', guard('respond_duel_challenge', async (payload) => {
+    const { fromUserId, accept } = payload ?? {}
     try {
-      if (!fromUserId || fromUserId === userId) return
+      if (typeof fromUserId !== 'string' || !fromUserId || fromUserId === userId) return
 
       if (!accept) {
         return emitToUser(fromUserId, 'duel_declined', {
@@ -98,11 +102,11 @@ export function registerFriendHandlers(io, socket) {
     } catch (err) {
       console.error('[DUEL] respond_duel_challenge:', err)
     }
-  })
+  }))
 
   // ── presence: offline (ostatni socket usera) ────────────────────────────────
-  socket.on('disconnect', () => {
+  socket.on('disconnect', guard('disconnect', () => {
     const { nowOffline } = removeOnline(userId, socket.id)
     if (nowOffline) void broadcastPresence(userId, false)
-  })
+  }))
 }
